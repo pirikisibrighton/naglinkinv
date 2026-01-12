@@ -10,7 +10,17 @@ connectDB();
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5000",
+      "http://localhost:3000",
+      "https://mwanawevhu-nexus.onrender.com",
+      "https://mwanawevhu-nexus-1.onrender.com",
+    ],
+    methods: ["GET", "POST"],
+  })
+);
 app.use(express.json());
 
 // Routes
