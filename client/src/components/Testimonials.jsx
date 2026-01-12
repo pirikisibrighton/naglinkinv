@@ -64,7 +64,7 @@ const Testimonials = () => {
     }
 
     try {
-      const res = await fetch("http://localhost:5000/api/testimonials", {
+      const res = await fetch("http://mwanawevhu-nexus.onrender.com/api/testimonials", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
