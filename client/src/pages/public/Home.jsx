@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, PackageSearch } from "lucide-react";
 
+import RequestQuoteModal from "../../components/RequestQuoteModal";
+
 import Services from "./Services";
 import About from "./About";
 import Fleet from "./Fleet";
@@ -21,6 +23,41 @@ import serviceVideo from "../../assets/videos/service-video.mp4";
 function Home() {
   const images = [hero1, hero2, hero3, hero4, hero5, hero6, hero7];
   const [current, setCurrent] = useState(0);
+
+  const [showQuoteForm, setShowQuoteForm] = useState(false);
+
+const [quoteData, setQuoteData] = useState({
+  pickupCity: "",
+  deliveryCity: "",
+  goodsType: "",
+  preferredService: "",
+});
+
+const inputClass =
+  "w-full rounded-2xl border-2 border-sky-200 bg-white/90 px-4 py-3 text-blue-950 outline-none transition placeholder:text-slate-500 focus:border-blue-700";
+
+const labelClass = "mb-2 block font-bold text-blue-950";
+
+const modalPrimaryButton =
+  "flex items-center justify-center gap-2 rounded-lg border border-blue-950 bg-blue-950 px-5 py-2 text-sm font-semibold text-white transition hover:border-blue-500 hover:bg-blue-700";
+
+const modalCancelButton =
+  "flex items-center justify-center gap-2 rounded-lg border border-blue-950 px-5 py-2 text-sm font-semibold text-blue-950 transition hover:border-blue-500 hover:bg-blue-700 hover:text-white";
+
+const handleQuoteRequest = async (e) => {
+  e.preventDefault();
+
+  console.log("Homepage quote data:", quoteData);
+
+  setShowQuoteForm(false);
+
+  setQuoteData({
+    pickupCity: "",
+    deliveryCity: "",
+    goodsType: "",
+    preferredService: "",
+  });
+};
 
   useEffect(() => {
     const slider = setInterval(() => {
@@ -76,13 +113,14 @@ function Home() {
                 </p>
 
                 <div className="mt-10 flex flex-col gap-4 sm:flex-row">
-                  <Link
-                    to="/register"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-white bg-white/10 px-8 py-4 text-lg font-semibold text-white shadow backdrop-blur transition hover:border-blue-700 hover:bg-blue-700 hover:text-white"
-                  >
-                    Request Quote
-                    <ArrowRight size={22} />
-                  </Link>
+                  <button
+  type="button"
+  onClick={() => setShowQuoteForm(true)}
+  className="inline-flex items-center justify-center gap-2 rounded-xl border border-white bg-white/10 px-8 py-4 text-lg font-semibold text-white shadow backdrop-blur transition hover:border-blue-700 hover:bg-blue-700 hover:text-white"
+>
+  Request Quote
+  <ArrowRight size={22} />
+</button>
 
                   <Link
                     to="/track-order"
@@ -161,6 +199,18 @@ function Home() {
       <section id="Contact">
         <Contact />
       </section>
+      {showQuoteForm && (
+  <RequestQuoteModal
+    quoteData={quoteData}
+    setQuoteData={setQuoteData}
+    onSubmit={handleQuoteRequest}
+    onClose={() => setShowQuoteForm(false)}
+    inputClass={inputClass}
+    labelClass={labelClass}
+    modalPrimaryButton={modalPrimaryButton}
+    modalCancelButton={modalCancelButton}
+  />
+)}
     </main>
   );
 }

@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import { useReactToPrint } from "react-to-print";
 
 import PrintableInvoice from "../../components/PrintableInvoice";
+import RequestQuoteModal from "../../components/RequestQuoteModal";
 import DashboardLayout from "../../components/DashboardLayout";
 
 import {
@@ -19,12 +20,13 @@ import {
 
 const CustomerDashboard = () => {
   const { user, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState("orders");
+  const [activeTab, setActiveTab] = useState("dashboard");
   const [globalSearch, setGlobalSearch] = useState("");
 
   const printRef = useRef();
 
   const [orders, setOrders] = useState([]);
+  const [quotes, setQuotes] = useState([]);
   const [showQuoteForm, setShowQuoteForm] = useState(false);
   const [showOrderForm, setShowOrderForm] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
@@ -46,8 +48,9 @@ const CustomerDashboard = () => {
   });
 
   useEffect(() => {
-    fetchOrders();
-  }, []);
+  fetchOrders();
+  fetchQuotes();
+}, []);
 
   const fetchOrders = async () => {
     try {
@@ -58,6 +61,15 @@ const CustomerDashboard = () => {
     }
   };
 
+  const fetchQuotes = async () => {
+  try {
+    const response = await API.get("/quotes/my-quotes");
+    setQuotes(response.data.quotes || []);
+  } catch (error) {
+    console.error("Error fetching quotes:", error);
+  }
+};
+
   const handleQuoteRequest = async (e) => {
   e.preventDefault();
 
@@ -67,6 +79,7 @@ const CustomerDashboard = () => {
     console.log("Quote response:", response.data);
 
     toast.success("Quote requested successfully!");
+    fetchQuotes();
     setShowQuoteForm(false);
 
     setQuoteData({
@@ -155,6 +168,15 @@ const CustomerDashboard = () => {
 
     return colors[status] || "bg-slate-100 text-slate-800 border border-slate-200";
   };
+  const getQuoteStatusColor = (status) => {
+  const colors = {
+    pending: "bg-blue-100 text-blue-700 border border-blue-200",
+    open: "bg-yellow-100 text-yellow-700 border border-yellow-200",
+    closed: "bg-emerald-100 text-emerald-700 border border-emerald-200",
+  };
+
+  return colors[status] || colors.pending;
+};
 
   const getFilteredOrders = () => {
     if (!globalSearch) return orders;
@@ -217,7 +239,11 @@ const CustomerDashboard = () => {
       title="Customer Portal"
       globalSearch={globalSearch}
       setGlobalSearch={setGlobalSearch}
-      menuItems={[{ key: "orders", label: "My Orders" }]}
+      menuItems={[
+  { key: "dashboard", label: "Dashboard" },
+  { key: "orders", label: "My Orders" },
+  { key: "quotes", label: "My Quotes" },
+]}
     >
       <div className="space-y-8">
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
@@ -236,6 +262,8 @@ const CustomerDashboard = () => {
           </button>
         </div>
 
+        {activeTab === "dashboard" && (
+  <>
         <div className="rounded-md border border-white/20 bg-gradient-to-br from-blue-950 via-sky-800 to-blue-900 p-5 text-white shadow-xl sm:p-6">
           <h2 className="text-3xl font-black sm:text-4xl">
             Welcome back, {user?.username}
@@ -468,6 +496,8 @@ const CustomerDashboard = () => {
             </div>
           </div>
         </div>
+          </>
+)}
 
         {activeTab === "orders" && (
           <div className="rounded-md border border-white/20 bg-gradient-to-br from-blue-950 via-sky-800 to-blue-900 p-4 text-white shadow-xl sm:p-6">
@@ -572,116 +602,111 @@ const CustomerDashboard = () => {
           </div>
         )}
 
-        {showQuoteForm && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-blue-950/75 px-3 py-4 backdrop-blur-sm">
-            <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[28px] bg-gradient-to-r from-blue-950 via-sky-500 to-blue-800 p-[4px] shadow-2xl">
-              <div className="rounded-[24px] bg-gradient-to-r from-slate-100 via-sky-100 to-white p-5 sm:p-6">
-                <div className="mb-6 flex items-start justify-between gap-4">
-                  <div>
-                    <h2 className="text-2xl font-black text-blue-950">
-                      Request a Quote
-                    </h2>
+        {activeTab === "quotes" && (
+  <div className="rounded-md border border-white/20 bg-gradient-to-br from-blue-950 via-sky-800 to-blue-900 p-4 text-white shadow-xl sm:p-6">
+    <div className="mb-6">
+      <h2 className="text-2xl font-black text-white sm:text-3xl">
+        My Quotes
+      </h2>
 
-                    <p className="mt-2 text-sm font-medium text-slate-600">
-                      Submit your shipment details to receive a logistics quote.
-                    </p>
-                  </div>
+      <p className="mt-1 text-sm font-medium text-sky-100">
+        Track all quote requests and admin responses.
+      </p>
+    </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setShowQuoteForm(false)}
-                    className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-950 text-white"
+    <div className="overflow-x-auto rounded-md border border-white/20">
+      <table className="w-full min-w-[900px] text-left text-sm">
+        <thead className="bg-white/10 text-sky-100">
+          <tr>
+            <th className="px-4 py-4">QUOTE</th>
+            <th className="px-4 py-4">PICKUP</th>
+            <th className="px-4 py-4">DELIVERY</th>
+            <th className="px-4 py-4">GOODS</th>
+            <th className="px-4 py-4">SERVICE</th>
+            <th className="px-4 py-4">PRICE</th>
+            <th className="px-4 py-4">STATUS</th>
+            <th className="px-4 py-4">DATE</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {quotes.length === 0 ? (
+            <tr>
+              <td
+                colSpan="8"
+                className="px-4 py-10 text-center font-semibold text-sky-100"
+              >
+                No quotes found
+              </td>
+            </tr>
+          ) : (
+            quotes.map((quote) => (
+              <tr
+                key={quote.id}
+                className="border-t border-white/10 text-sky-50"
+              >
+                <td className="px-4 py-4 font-black text-white">
+                  #{quote.id}
+                </td>
+
+                <td className="px-4 py-4">
+                  {quote.pickupCity || "N/A"}
+                </td>
+
+                <td className="px-4 py-4">
+                  {quote.deliveryCity || "N/A"}
+                </td>
+
+                <td className="px-4 py-4">
+                  {quote.goodsType || "N/A"}
+                </td>
+
+                <td className="px-4 py-4">
+                  {quote.preferredService || "N/A"}
+                </td>
+
+                <td className="px-4 py-4 font-bold text-emerald-300">
+                  {quote.estimatedPrice
+                    ? `$${quote.estimatedPrice}`
+                    : "Waiting..."}
+                </td>
+
+                <td className="px-4 py-4">
+                  <span
+                    className={`inline-flex items-center rounded px-2.5 py-1 text-xs font-medium ${getQuoteStatusColor(
+                      quote.status
+                    )}`}
                   >
-                    <X size={22} />
-                  </button>
-                </div>
+                    {(quote.status || "pending").toUpperCase()}
+                  </span>
+                </td>
 
-                <form onSubmit={handleQuoteRequest} className="space-y-5">
-                  <div>
-                    <label className={labelClass}>Pickup City</label>
-                    <input
-                      type="text"
-                      value={quoteData.pickupCity}
-                      onChange={(e) =>
-                        setQuoteData({ ...quoteData, pickupCity: e.target.value })
-                      }
-                      placeholder="Enter pickup city"
-                      className={inputClass}
-                      required
-                    />
-                  </div>
+                <td className="px-4 py-4 text-sky-100">
+                  {quote.createdAt
+                    ? new Date(quote.createdAt).toLocaleDateString()
+                    : "N/A"}
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  </div>
+)}
 
-                  <div>
-                    <label className={labelClass}>Delivery City</label>
-                    <input
-                      type="text"
-                      value={quoteData.deliveryCity}
-                      onChange={(e) =>
-                        setQuoteData({ ...quoteData, deliveryCity: e.target.value })
-                      }
-                      placeholder="Enter delivery city"
-                      className={inputClass}
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className={labelClass}>Type of Goods</label>
-                    <select
-                      value={quoteData.goodsType}
-                      onChange={(e) =>
-                        setQuoteData({ ...quoteData, goodsType: e.target.value })
-                      }
-                      className={inputClass}
-                      required
-                    >
-                      <option value="">Select goods type</option>
-                      <option value="Electronics">Electronics</option>
-                      <option value="Food">Food</option>
-                      <option value="Furniture">Furniture</option>
-                      <option value="Construction">Construction Materials</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className={labelClass}>Service Preference</label>
-                    <select
-                      value={quoteData.preferredService}
-                      onChange={(e) =>
-                        setQuoteData({
-                          ...quoteData,
-                          preferredService: e.target.value,
-                        })
-                      }
-                      className={inputClass}
-                      required
-                    >
-                      <option value="">Select service preference</option>
-                      <option value="Express">Express (1-2 days)</option>
-                      <option value="Standard">Standard (3-5 days)</option>
-                      <option value="Economy">Economy (5-7 days)</option>
-                    </select>
-                  </div>
-
-                  <div className="flex flex-col gap-3 border-t border-sky-200 pt-5 sm:flex-row sm:justify-end">
-                    <button
-                      type="button"
-                      onClick={() => setShowQuoteForm(false)}
-                      className={modalCancelButton}
-                    >
-                      Cancel
-                    </button>
-
-                    <button type="submit" className={modalPrimaryButton}>
-                      Submit Quote Request
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          </div>
-        )}
+        {showQuoteForm && (
+  <RequestQuoteModal
+    quoteData={quoteData}
+    setQuoteData={setQuoteData}
+    onSubmit={handleQuoteRequest}
+    onClose={() => setShowQuoteForm(false)}
+    inputClass={inputClass}
+    labelClass={labelClass}
+    modalPrimaryButton={modalPrimaryButton}
+    modalCancelButton={modalCancelButton}
+  />
+)}
 
         {showOrderForm && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-blue-950/75 px-3 py-4 backdrop-blur-sm">

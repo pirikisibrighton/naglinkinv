@@ -39,6 +39,14 @@ const AdminDashboard = () => {
   const [showEditTruckForm, setShowEditTruckForm] = useState(false);
   const [editingTruck, setEditingTruck] = useState(null);
 
+  const [quotes, setQuotes] = useState([]);
+const [selectedQuote, setSelectedQuote] = useState(null);
+const [showQuoteModal, setShowQuoteModal] = useState(false);
+
+const [quoteReplyData, setQuoteReplyData] = useState({
+  estimatedPrice: "",
+});
+
   const [showDriverForm, setShowDriverForm] = useState(false);
   const [showEditDriverForm, setShowEditDriverForm] = useState(false);
   const [editingDriver, setEditingDriver] = useState(null);
@@ -79,6 +87,7 @@ const AdminDashboard = () => {
     fetchOrders();
     fetchTrucks();
     fetchDrivers();
+    fetchQuotes();
   }, []);
 
   const fetchDashboardStats = async () => {
@@ -145,9 +154,88 @@ const getFilteredOrders = () => {
         order.truck?.licensePlate?.toLowerCase().includes(q)
     );
   }
+const handleOpenQuote = async (quote) => {
+  setSelectedQuote(quote);
+  setQuoteReplyData({
+    estimatedPrice: quote.estimatedPrice || "",
+  });
+  setShowQuoteModal(true);
 
+  if (quote.status === "pending") {
+    try {
+      await API.put(`/quotes/${quote.id}/open`);
+      fetchQuotes();
+    } catch (error) {
+      console.error("Error opening quote:", error);
+    }
+  }
+};
+
+const handleSubmitQuotePrice = async (e) => {
+  e.preventDefault();
+
+  try {
+    await API.put(`/quotes/${selectedQuote.id}/price`, quoteReplyData);
+    toast.success("Quote submitted successfully!");
+
+    setShowQuoteModal(false);
+    setSelectedQuote(null);
+    fetchQuotes();
+  } catch (error) {
+    console.error("Error submitting quote:", error);
+    toast.error(error.response?.data?.message || "Error submitting quote");
+  }
+};
   return filtered;
 };
+
+ const fetchQuotes = async () => {
+  try {
+    const response = await API.get("/quotes");
+    setQuotes(response.data.quotes || []);
+  } catch (error) {
+    console.error("Error fetching quotes:", error);
+    toast.error("Error fetching quotes");
+  }
+};
+
+const handleOpenQuote = async (quote) => {
+  console.log("Opening quote:", quote);
+
+  setSelectedQuote(quote);
+
+  setQuoteReplyData({
+    estimatedPrice: quote.estimatedPrice || "",
+  });
+
+  setShowQuoteModal(true);
+
+  if (quote.status === "pending") {
+    try {
+      await API.put(`/quotes/${quote.id}/open`);
+      fetchQuotes();
+    } catch (error) {
+      console.error("Error opening quote:", error);
+    }
+  }
+};
+
+const handleSubmitQuotePrice = async (e) => {
+  e.preventDefault();
+
+  try {
+    await API.put(`/quotes/${selectedQuote.id}/price`, quoteReplyData);
+
+    toast.success("Quote submitted successfully!");
+    setShowQuoteModal(false);
+    setSelectedQuote(null);
+    fetchQuotes();
+  } catch (error) {
+    console.error("Error submitting quote:", error);
+    toast.error(error.response?.data?.message || "Error submitting quote");
+  }
+};
+
 const getFilteredTrucks = () => {
   if (!globalSearch) return trucks;
 
@@ -403,6 +491,16 @@ const getFilteredDrivers = () => {
     return colors[status] || "bg-slate-100 text-slate-800 border border-slate-200";
   };
 
+  const getQuoteStatusColor = (status) => {
+  const colors = {
+    pending: "bg-blue-100 text-blue-700 border border-blue-200",
+    open: "bg-yellow-100 text-yellow-700 border border-yellow-200",
+    closed: "bg-emerald-100 text-emerald-700 border border-emerald-200",
+  };
+
+  return colors[status] || colors.pending;
+};
+
   const orderTabs = [
     {
       key: "all",
@@ -470,6 +568,7 @@ const getFilteredDrivers = () => {
         { key: "orders", label: "Orders" },
         { key: "trucks", label: "Trucks" },
         { key: "drivers", label: "Drivers" },
+        { key: "quotes", label: "Quotes" },
       ]}
     >
       <div className="space-y-8">
@@ -1013,6 +1112,112 @@ const getFilteredDrivers = () => {
     </div>
   </div>
 )}
+
+{activeTab === "quotes" && (
+  <div className="rounded-md border border-white/20 bg-gradient-to-br from-blue-950 via-sky-800 to-blue-900 p-4 text-white shadow-xl sm:p-6">
+    <div className="mb-6">
+      <h2 className="text-2xl font-black text-white sm:text-3xl">
+        Quote Requests
+      </h2>
+
+      <p className="mt-1 text-sm font-medium text-sky-100">
+        View customer quote requests and submit prices.
+      </p>
+    </div>
+
+    <div className="overflow-x-auto rounded-md border border-white/20">
+      <table className="w-full min-w-[1050px] text-left text-sm">
+        <thead className="bg-white/10 text-sky-100">
+          <tr>
+            <th className="px-4 py-4">QUOTE</th>
+            <th className="px-4 py-4">CUSTOMER</th>
+            <th className="px-4 py-4">PICKUP</th>
+            <th className="px-4 py-4">DELIVERY</th>
+            <th className="px-4 py-4">GOODS</th>
+            <th className="px-4 py-4">SERVICE</th>
+            <th className="px-4 py-4">STATUS</th>
+            <th className="px-4 py-4">DATE</th>
+            <th className="px-4 py-4">ACTION</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {quotes.length === 0 ? (
+            <tr>
+              <td
+                colSpan="9"
+                className="px-4 py-10 text-center font-semibold text-sky-100"
+              >
+                No quote requests found
+              </td>
+            </tr>
+          ) : (
+            quotes.map((quote) => (
+              <tr
+                key={quote.id}
+                onClick={() => handleOpenQuote(quote)}
+                className="cursor-pointer border-t border-white/10 text-sky-50 transition hover:bg-white/10"
+              >
+                <td className="px-4 py-4 font-black text-white">
+                  #{quote.id}
+                </td>
+
+                <td className="px-4 py-4">
+                  {quote.customer?.username || "N/A"}
+                </td>
+
+                <td className="px-4 py-4">
+                  {quote.pickupCity || "N/A"}
+                </td>
+
+                <td className="px-4 py-4">
+                  {quote.deliveryCity || "N/A"}
+                </td>
+
+                <td className="px-4 py-4">
+                  {quote.goodsType || "N/A"}
+                </td>
+
+                <td className="px-4 py-4">
+                  {quote.preferredService || "N/A"}
+                </td>
+
+                <td className="px-4 py-4">
+                  <span
+                    className={`inline-flex items-center rounded px-2.5 py-1 text-xs font-medium ${getQuoteStatusColor(
+                      quote.status
+                    )}`}
+                  >
+                    {(quote.status || "pending").toUpperCase()}
+                  </span>
+                </td>
+
+                <td className="px-4 py-4 text-sky-100">
+                  {quote.createdAt
+                    ? new Date(quote.createdAt).toLocaleDateString()
+                    : "N/A"}
+                </td>
+
+                <td className="px-4 py-4">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenQuote(quote);
+                    }}
+                    className="rounded-lg border border-white/40 px-4 py-2 text-xs font-semibold text-white transition hover:border-blue-500 hover:bg-blue-700"
+                  >
+                    Reply
+                  </button>
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  </div>
+)}
  {activeTab === "trucks" && (
   <div>
     {/* TOP RIGHT BUTTON */}
@@ -1337,6 +1542,7 @@ const getFilteredDrivers = () => {
     </div>
   </div>
 )}
+
         {showTruckForm && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-blue-950/75 px-3 py-4 backdrop-blur-sm">
             <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[28px] bg-gradient-to-r from-blue-950 via-sky-500 to-blue-800 p-[4px] shadow-2xl">
@@ -1710,6 +1916,104 @@ const getFilteredDrivers = () => {
             </div>
           </div>
         )}
+
+        {showQuoteModal && selectedQuote && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-blue-950/70 px-3 py-4 backdrop-blur-sm">
+    <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-[28px] bg-gradient-to-r from-blue-950 via-sky-500 to-blue-800 p-[4px] shadow-2xl">
+      <div className="rounded-[24px] bg-gradient-to-r from-slate-100 via-sky-100 to-white p-5 sm:p-6">
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-black text-blue-950">
+              Quote #{selectedQuote.id}
+            </h2>
+
+            <p className="mt-1 text-sm font-medium text-slate-600">
+              Review customer request and submit quotation.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowQuoteModal(false)}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-950 text-white"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="mb-5 space-y-3 rounded-2xl border border-sky-200 bg-white/80 p-4 text-sm text-blue-950">
+          <p>
+            <span className="font-black">Customer:</span>{" "}
+            {selectedQuote.customer?.username || "N/A"}
+          </p>
+
+          <p>
+            <span className="font-black">Pickup:</span>{" "}
+            {selectedQuote.pickupCity}
+          </p>
+
+          <p>
+            <span className="font-black">Delivery:</span>{" "}
+            {selectedQuote.deliveryCity}
+          </p>
+
+          <p>
+            <span className="font-black">Goods:</span>{" "}
+            {selectedQuote.goodsType}
+          </p>
+
+          <p>
+            <span className="font-black">Preferred Service:</span>{" "}
+            {selectedQuote.preferredService}
+          </p>
+        </div>
+
+        <form
+          onSubmit={handleSubmitQuotePrice}
+          className="space-y-5"
+        >
+          <div>
+            <label className={labelClass}>
+              Estimated Price (USD)
+            </label>
+
+            <input
+              type="number"
+              step="0.01"
+              required
+              value={quoteReplyData.estimatedPrice}
+              onChange={(e) =>
+                setQuoteReplyData({
+                  ...quoteReplyData,
+                  estimatedPrice: e.target.value,
+                })
+              }
+              className={inputClass}
+              placeholder="Enter quotation amount"
+            />
+          </div>
+
+          <div className="flex flex-col gap-3 border-t border-sky-200 pt-5 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={() => setShowQuoteModal(false)}
+              className={cancelButton}
+            >
+              Cancel
+            </button>
+
+            <button
+              type="submit"
+              className={primaryButton}
+            >
+              Submit Quote
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+)}
 
         {showMultiTruckForm && (
           <MultiTruckOrderForm

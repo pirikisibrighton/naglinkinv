@@ -41,9 +41,9 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true
     },
     status: {
-      type: DataTypes.ENUM('pending', 'approved', 'rejected'),
-      defaultValue: 'pending'
-    }
+  type: DataTypes.ENUM("pending", "open", "closed"),
+  defaultValue: "pending",
+}
   }, {
     sequelize,
     modelName: 'Quote',

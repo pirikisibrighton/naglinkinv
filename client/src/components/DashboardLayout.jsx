@@ -8,6 +8,7 @@ import {
   LogOut,
   Search,
   Menu,
+  FileText,
   X,
 } from "lucide-react";
 import logo from "../assets/logo.png";
@@ -17,6 +18,7 @@ const iconMap = {
   orders: ClipboardList,
   trucks: Truck,
   drivers: Users,
+  quotes: FileText,
 };
 
 function DashboardLayout({

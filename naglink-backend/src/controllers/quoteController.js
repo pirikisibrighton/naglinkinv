@@ -61,7 +61,7 @@ const provideQuotePrice = async (req, res) => {
     
     await quote.update({
       estimatedPrice,
-      status: 'approved'
+      status: 'closed'
     });
     
     res.json({
@@ -69,8 +69,13 @@ const provideQuotePrice = async (req, res) => {
       quote
     });
   } catch (error) {
-    res.status(500).json({ message: 'Error providing quote price', error: error.message });
-  }
+  console.error("Quote price error:", error);
+
+  res.status(500).json({
+    message: "Error providing quote price",
+    error: error.message,
+  });
+}
 };
 
 // Get all quotes (Admin only)
@@ -90,9 +95,41 @@ const getAllQuotes = async (req, res) => {
   }
 };
 
+// Admin opens a quote
+const openQuote = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const quote = await Quote.findByPk(id);
+
+    if (!quote) {
+      return res.status(404).json({
+        message: "Quote not found",
+      });
+    }
+
+    if (quote.status === "pending") {
+      await quote.update({
+        status: "open",
+      });
+    }
+
+    res.json({
+      message: "Quote opened successfully",
+      quote,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Error opening quote",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   requestQuote,
   getMyQuotes,
   provideQuotePrice,
-  getAllQuotes
+  getAllQuotes,
+  openQuote,
 };
