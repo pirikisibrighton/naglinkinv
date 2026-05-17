@@ -3,8 +3,6 @@ import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, PackageSearch } from "lucide-react";
 
-import RequestQuoteModal from "../../components/RequestQuoteModal";
-
 import Services from "./Services";
 import About from "./About";
 import Fleet from "./Fleet";
@@ -23,41 +21,6 @@ import serviceVideo from "../../assets/videos/service-video.mp4";
 function Home() {
   const images = [hero1, hero2, hero3, hero4, hero5, hero6, hero7];
   const [current, setCurrent] = useState(0);
-
-  const [showQuoteForm, setShowQuoteForm] = useState(false);
-
-const [quoteData, setQuoteData] = useState({
-  pickupCity: "",
-  deliveryCity: "",
-  goodsType: "",
-  preferredService: "",
-});
-
-const inputClass =
-  "w-full rounded-2xl border-2 border-sky-200 bg-white/90 px-4 py-3 text-blue-950 outline-none transition placeholder:text-slate-500 focus:border-blue-700";
-
-const labelClass = "mb-2 block font-bold text-blue-950";
-
-const modalPrimaryButton =
-  "flex items-center justify-center gap-2 rounded-lg border border-blue-950 bg-blue-950 px-5 py-2 text-sm font-semibold text-white transition hover:border-blue-500 hover:bg-blue-700";
-
-const modalCancelButton =
-  "flex items-center justify-center gap-2 rounded-lg border border-blue-950 px-5 py-2 text-sm font-semibold text-blue-950 transition hover:border-blue-500 hover:bg-blue-700 hover:text-white";
-
-const handleQuoteRequest = async (e) => {
-  e.preventDefault();
-
-  console.log("Homepage quote data:", quoteData);
-
-  setShowQuoteForm(false);
-
-  setQuoteData({
-    pickupCity: "",
-    deliveryCity: "",
-    goodsType: "",
-    preferredService: "",
-  });
-};
 
   useEffect(() => {
     const slider = setInterval(() => {
@@ -113,14 +76,13 @@ const handleQuoteRequest = async (e) => {
                 </p>
 
                 <div className="mt-10 flex flex-col gap-4 sm:flex-row">
-                  <button
-  type="button"
-  onClick={() => setShowQuoteForm(true)}
-  className="inline-flex items-center justify-center gap-2 rounded-xl border border-white bg-white/10 px-8 py-4 text-lg font-semibold text-white shadow backdrop-blur transition hover:border-blue-700 hover:bg-blue-700 hover:text-white"
->
-  Request Quote
-  <ArrowRight size={22} />
-</button>
+                  <Link
+                    to="/login"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-white bg-white/10 px-8 py-4 text-lg font-semibold text-white shadow backdrop-blur transition hover:border-blue-700 hover:bg-blue-700 hover:text-white"
+                  >
+                    Request Quote
+                    <ArrowRight size={22} />
+                  </Link>
 
                   <Link
                     to="/track-order"
@@ -168,7 +130,6 @@ const handleQuoteRequest = async (e) => {
           </div>
         </div>
 
-        {/* FLOATING VIDEO CARD */}
         <div className="pointer-events-none absolute right-4 top-[170px] z-30 hidden lg:block">
           <div className="h-[430px] w-[430px] overflow-hidden bg-gradient-to-r from-blue-950 via-sky-500 to-blue-800 p-7 shadow-2xl">
             <video
@@ -185,32 +146,17 @@ const handleQuoteRequest = async (e) => {
         <Services />
       </section>
 
-      {/* ABOUT */}
       <section id="About">
         <About />
       </section>
 
-      {/* PORTFOLIO / FLEET */}
       <section id="Portfolio">
         <Fleet />
       </section>
 
-      {/* CONTACT */}
       <section id="Contact">
         <Contact />
       </section>
-      {showQuoteForm && (
-  <RequestQuoteModal
-    quoteData={quoteData}
-    setQuoteData={setQuoteData}
-    onSubmit={handleQuoteRequest}
-    onClose={() => setShowQuoteForm(false)}
-    inputClass={inputClass}
-    labelClass={labelClass}
-    modalPrimaryButton={modalPrimaryButton}
-    modalCancelButton={modalCancelButton}
-  />
-)}
     </main>
   );
 }
