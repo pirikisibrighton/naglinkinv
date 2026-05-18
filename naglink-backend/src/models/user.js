@@ -1,76 +1,111 @@
-'use strict';
-const { Model } = require('sequelize');
+"use strict";
+
+const { Model } = require("sequelize");
+
 module.exports = (sequelize, DataTypes) => {
   class User extends Model {
     static associate(models) {
       // User has many Orders (as customer)
-      User.hasMany(models.Order, { foreignKey: 'customerId', as: 'orders' });
-      
+      User.hasMany(models.Order, {
+        foreignKey: "customerId",
+        as: "orders",
+      });
+
       // User has many Orders (as driver)
-      User.hasMany(models.Order, { foreignKey: 'driverId', as: 'driverOrders' });
-      
+      User.hasMany(models.Order, {
+        foreignKey: "driverId",
+        as: "driverOrders",
+      });
+
       // User has many Quotes
-      User.hasMany(models.Quote, { foreignKey: 'customerId', as: 'quotes' });
+      User.hasMany(models.Quote, {
+        foreignKey: "customerId",
+        as: "quotes",
+      });
+
       // User has one Truck (as assigned driver)
       User.hasOne(models.Truck, {
         foreignKey: "assignedDriverId",
         as: "assignedTruck",
       });
-            
+
+      // User has many location updates
+      User.hasMany(models.OrderLocation, {
+        foreignKey: "driverId",
+        as: "locationUpdates",
+      });
+
       // User has many Invoices
-      User.hasMany(models.Invoice, { foreignKey: 'customerId', as: 'invoices' });
-      
+      User.hasMany(models.Invoice, {
+        foreignKey: "customerId",
+        as: "invoices",
+      });
+
       // User has many Messages (sent)
-      User.hasMany(models.Message, { foreignKey: 'senderId', as: 'sentMessages' });
+      User.hasMany(models.Message, {
+        foreignKey: "senderId",
+        as: "sentMessages",
+      });
     }
   }
-  
-  User.init({
-    username: {
-      type: DataTypes.STRING,
-      allowNull: false,
-      unique: true
+
+  User.init(
+    {
+      username: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        unique: true,
+      },
+
+      email: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        unique: true,
+        validate: {
+          isEmail: true,
+        },
+      },
+
+      password: {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+
+      role: {
+        type: DataTypes.ENUM("customer", "driver", "admin"),
+        defaultValue: "customer",
+      },
+
+      phone: {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+
+      profileImageUrl: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+
+      companyName: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+
+      address: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+      },
+
+      isAvailable: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: true,
+      },
     },
-    email: {
-      type: DataTypes.STRING,
-      allowNull: false,
-      unique: true,
-      validate: {
-        isEmail: true
-      }
-    },
-    password: {
-      type: DataTypes.STRING,
-      allowNull: false
-    },
-    role: {
-      type: DataTypes.ENUM('customer', 'driver', 'admin'),
-      defaultValue: 'customer'
-    },
-    phone: {
-      type: DataTypes.STRING,
-      allowNull: false
-    },
-    profileImageUrl: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-    companyName: {
-      type: DataTypes.STRING,
-      allowNull: true
-    },
-    address: {
-      type: DataTypes.TEXT,
-      allowNull: true
-    },
-    isAvailable: {
-    type: DataTypes.BOOLEAN,
-    defaultValue: true
-  }
-  }, {
-    sequelize,
-    modelName: 'User',
-  });
-  
+    {
+      sequelize,
+      modelName: "User",
+    }
+  );
+
   return User;
 };

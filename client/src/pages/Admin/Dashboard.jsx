@@ -21,6 +21,7 @@ import {
   CheckCircle2,
   Search,
   XCircle,
+  MapPin,
 } from "lucide-react";
 
 const AdminDashboard = () => {
@@ -99,14 +100,17 @@ const [quoteReplyData, setQuoteReplyData] = useState({
     }
   };
 
-  const fetchOrders = async () => {
-    try {
-      const response = await API.get("/admin/trips");
-      setOrders(response.data.trips || []);
-    } catch (error) {
-      console.error("Error fetching orders:", error);
-    }
-  };
+ const fetchOrders = async () => {
+  try {
+    const response = await API.get("/orders");
+
+    console.log("Admin orders with locations:", response.data.orders);
+
+    setOrders(response.data.orders || []);
+  } catch (error) {
+    console.error("Error fetching orders:", error);
+  }
+};
 
   const fetchTrucks = async () => {
     try {
@@ -151,45 +155,17 @@ const getFilteredOrders = () => {
         order.driver?.username?.toLowerCase().includes(q) ||
         order.driver?.email?.toLowerCase().includes(q) ||
         order.truck?.truckName?.toLowerCase().includes(q) ||
-        order.truck?.licensePlate?.toLowerCase().includes(q)
+        order.truck?.licensePlate?.toLowerCase().includes(q) ||
+        order.locations?.some((location) =>
+          location.locationName?.toLowerCase().includes(q)
+        )
     );
   }
-const handleOpenQuote = async (quote) => {
-  setSelectedQuote(quote);
-  setQuoteReplyData({
-    estimatedPrice: quote.estimatedPrice || "",
-  });
-  setShowQuoteModal(true);
 
-  if (quote.status === "pending") {
-    try {
-      await API.put(`/quotes/${quote.id}/open`);
-      fetchQuotes();
-    } catch (error) {
-      console.error("Error opening quote:", error);
-    }
-  }
-};
-
-const handleSubmitQuotePrice = async (e) => {
-  e.preventDefault();
-
-  try {
-    await API.put(`/quotes/${selectedQuote.id}/price`, quoteReplyData);
-    toast.success("Quote submitted successfully!");
-
-    setShowQuoteModal(false);
-    setSelectedQuote(null);
-    fetchQuotes();
-  } catch (error) {
-    console.error("Error submitting quote:", error);
-    toast.error(error.response?.data?.message || "Error submitting quote");
-  }
-};
   return filtered;
 };
 
- const fetchQuotes = async () => {
+const fetchQuotes = async () => {
   try {
     const response = await API.get("/quotes");
     setQuotes(response.data.quotes || []);
@@ -759,54 +735,81 @@ const getFilteredDrivers = () => {
                 <th className="px-4 py-4">TO</th>
                 <th className="px-4 py-4">STATUS</th>
                 <th className="px-4 py-4">DATE</th>
+                <th className="px-4 py-4">LOCATION UPDATES</th>
               </tr>
             </thead>
 
             <tbody>
-              {stats.recentOrders?.slice(0, 5).length > 0 ? (
-                stats.recentOrders.slice(0, 5).map((order) => (
-                  <tr
-                    key={order.id}
-                    className="border-t border-white/10 text-sky-50 transition hover:bg-white/10"
-                  >
-                    <td className="px-4 py-4 font-black text-white">
-                      #{order.id}
-                    </td>
+              {orders.slice(0, 5).length > 0 ? (
+  orders.slice(0, 5).map((order) => (
+                 <tr
+  key={order.id}
+  className="border-t border-white/10 text-sky-50 transition hover:bg-white/10"
+>
+  <td className="px-4 py-4 font-black text-white">#{order.id}</td>
 
-                    <td className="px-4 py-4">
-                      {order.customer?.username || "N/A"}
-                    </td>
+  <td className="px-4 py-4">
+    {order.customer?.username || "N/A"}
+  </td>
 
-                    <td className="px-4 py-4">
-                      {order.pickupLocation || "N/A"}
-                    </td>
+  <td className="px-4 py-4">
+    {order.pickupLocation || "N/A"}
+  </td>
 
-                    <td className="px-4 py-4">
-                      {order.deliveryLocation || "N/A"}
-                    </td>
+  <td className="px-4 py-4">
+    {order.deliveryLocation || "N/A"}
+  </td>
 
-                    <td className="px-4 py-4">
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-black ${getStatusColor(
-                          order.status
-                        )}`}
-                      >
-                        {order.status?.replace("_", " ").toUpperCase() ||
-                          "PENDING"}
-                      </span>
-                    </td>
+  <td className="px-4 py-4">
+    <span
+      className={`rounded-full px-3 py-1 text-xs font-black ${getStatusColor(
+        order.status
+      )}`}
+    >
+      {order.status?.replace("_", " ").toUpperCase() || "PENDING"}
+    </span>
+  </td>
 
-                    <td className="px-4 py-4 text-sky-100">
-                      {order.createdAt
-                        ? new Date(order.createdAt).toLocaleDateString()
-                        : "N/A"}
-                    </td>
-                  </tr>
+  <td className="px-4 py-4 text-sky-100">
+    {order.createdAt
+      ? new Date(order.createdAt).toLocaleDateString()
+      : "N/A"}
+  </td>
+
+  <td className="min-w-[260px] px-4 py-4">
+    <div className="max-h-32 space-y-2 overflow-y-auto">
+      {order.locations?.length > 0 ? (
+        order.locations.map((location) => (
+          <div
+            key={location.id}
+            className="rounded-md border border-white/10 bg-white/10 p-2 text-xs"
+          >
+            <div className="flex items-start gap-2">
+              <MapPin size={14} className="mt-0.5 shrink-0 text-sky-300" />
+
+              <div>
+                <p className="font-bold text-white">
+                  {location.locationName}
+                </p>
+
+                <p className="text-sky-200">
+                  {new Date(location.createdAt).toLocaleString()}
+                </p>
+              </div>
+            </div>
+          </div>
+        ))
+      ) : (
+        <span className="text-xs text-sky-200">No location updates</span>
+      )}
+    </div>
+  </td>
+</tr>
                 ))
               ) : (
                 <tr>
                   <td
-                    colSpan="6"
+                    colSpan="7"
                     className="px-4 py-8 text-center font-semibold text-sky-100"
                   >
                     No recent orders found
@@ -911,7 +914,7 @@ const getFilteredDrivers = () => {
       </div>
 
       <div className="overflow-x-auto rounded-md border border-white/20">
-        <table className="w-full min-w-[1400px] text-left text-sm">
+        <table className="w-full min-w-[1600px] text-left text-sm">
           <thead className="bg-white/10 text-sky-100">
             <tr>
               <th className="px-4 py-4">ORDER</th>
@@ -924,6 +927,7 @@ const getFilteredDrivers = () => {
               <th className="px-4 py-4">DRIVER/TRUCK</th>
               <th className="px-4 py-4">SCHEDULE</th>
               <th className="px-4 py-4">ACTIONS</th>
+              <th className="px-4 py-4">LOCATION UPDATES</th>
             </tr>
           </thead>
 
@@ -931,7 +935,7 @@ const getFilteredDrivers = () => {
             {getFilteredOrders().length === 0 ? (
               <tr>
                 <td
-                  colSpan="10"
+                  colSpan="11"
                   className="px-4 py-10 text-center font-semibold text-sky-100"
                 >
                   No orders found
@@ -945,15 +949,24 @@ const getFilteredDrivers = () => {
                 >
                   <td className="px-4 py-4 font-black text-white">
                     #{order.id}
+                    {order.packageNumber && (
+                      <p className="mt-1 text-xs font-medium text-sky-200">
+                        Package: {order.packageNumber}
+                      </p>
+                    )}
                   </td>
 
                   <td className="px-4 py-4">
-                    {order.customer?.username || "N/A"}
+                    <p className="font-semibold text-white">
+                      {order.customer?.username || "N/A"}
+                    </p>
+                    <p className="text-xs text-sky-200">
+                      {order.customer?.email || ""}
+                    </p>
                   </td>
 
-                  <td className="min-w-[220px] px-4 py-4">
+                  <td className="min-w-[240px] px-4 py-4">
                     <p>📍 {order.pickupLocation || "N/A"}</p>
-
                     <p className="mt-1 text-sky-200">
                       🎯 {order.deliveryLocation || "N/A"}
                     </p>
@@ -982,34 +995,47 @@ const getFilteredDrivers = () => {
                     </span>
                   </td>
 
-                  <td className="min-w-[210px] px-4 py-4">
+                  <td className="min-w-[220px] px-4 py-4">
                     {order.driver ? (
                       <div>
                         <p className="font-semibold text-white">
                           👨‍✈️ {order.driver.username}
                         </p>
-
                         <p className="text-xs text-sky-200">
                           {order.driver.email}
+                        </p>
+                        <p className="text-xs text-sky-200">
+                          {order.driver.phone}
                         </p>
                       </div>
                     ) : (
                       <p className="text-sky-200">No driver</p>
                     )}
+
+                    {order.truck && (
+                      <div className="mt-2 rounded-md border border-white/10 bg-white/10 p-2 text-xs text-sky-100">
+                        🚚 {order.truck.truckName || "Truck"} - {order.truck.licensePlate || "N/A"}
+                      </div>
+                    )}
                   </td>
 
-                  <td className="min-w-[220px] px-4 py-4 text-sky-100">
+                  <td className="min-w-[240px] px-4 py-4 text-sky-100">
                     <p>
-                      Departure:{" "}
+                      Departure: {" "}
                       {order.departureTime
                         ? new Date(order.departureTime).toLocaleString()
+                        : "N/A"}
+                    </p>
+                    <p className="mt-1">
+                      ETA: {" "}
+                      {order.forecastedArrival
+                        ? new Date(order.forecastedArrival).toLocaleString()
                         : "N/A"}
                     </p>
                   </td>
 
                   <td className="min-w-[320px] px-4 py-4">
                     <div className="flex flex-wrap gap-2">
-                      {/* STEP 1: Customer order is pending, admin approves and sets price/driver/truck */}
                       {order.approvalStatus === "pending" && (
                         <button
                           onClick={() => handleApproveOrder(order)}
@@ -1019,7 +1045,6 @@ const getFilteredDrivers = () => {
                         </button>
                       )}
 
-                      {/* STEP 2: Driver has submitted loading details; admin approves loading to move order to in transit */}
                       {order.status === "loading" && !order.loadingApproved && (
                         <>
                           {(order.loadingDocumentUrl ||
@@ -1050,14 +1075,12 @@ const getFilteredDrivers = () => {
                         </>
                       )}
 
-                      {/* STEP 3: Order is now in transit, waiting for driver to upload POD/offloading document */}
                       {order.status === "in_transit" && (
                         <div className="flex items-center justify-center gap-2 rounded-lg border border-blue-300 bg-blue-100 px-4 py-2 text-xs font-semibold text-blue-700">
                           Waiting for POD
                         </div>
                       )}
 
-                      {/* STEP 4: Driver has uploaded POD/offloading document; admin approves final offloading */}
                       {order.status === "offloading" && !order.offloadingApproved && (
                         <>
                           {(order.offloadingDocumentUrl ||
@@ -1088,18 +1111,49 @@ const getFilteredDrivers = () => {
                         </>
                       )}
 
-                      {/* STEP 5: Process complete */}
                       {order.status === "delivered" && (
                         <div className="flex items-center justify-center gap-2 rounded-lg border border-emerald-300 bg-emerald-100 px-4 py-2 text-xs font-semibold text-emerald-700">
                           Completed
                         </div>
                       )}
 
-                      {/* Waiting states */}
                       {order.status === "approved" && (
                         <div className="flex items-center justify-center gap-2 rounded-lg border border-yellow-300 bg-yellow-100 px-4 py-2 text-xs font-semibold text-yellow-700">
                           Waiting for Driver Loading
                         </div>
+                      )}
+                    </div>
+                  </td>
+
+                  <td className="min-w-[300px] px-4 py-4">
+                    <div className="max-h-32 space-y-2 overflow-y-auto">
+                      {order.locations?.length > 0 ? (
+                        order.locations.map((location) => (
+                          <div
+                            key={location.id}
+                            className="rounded-md border border-white/10 bg-white/10 p-2 text-xs"
+                          >
+                            <div className="flex items-start gap-2">
+                              <MapPin
+                                size={14}
+                                className="mt-0.5 shrink-0 text-sky-300"
+                              />
+
+                              <div>
+                                <p className="font-bold text-white">
+                                  {location.locationName}
+                                </p>
+                                <p className="text-sky-200">
+                                  {new Date(location.createdAt).toLocaleString()}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <span className="text-xs text-sky-200">
+                          No location updates
+                        </span>
                       )}
                     </div>
                   </td>

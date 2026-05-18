@@ -32,6 +32,8 @@ fs
     db[model.name] = model;
   });
 
+console.log("Loaded models:", Object.keys(db));
+
 Object.keys(db).forEach(modelName => {
   if (db[modelName].associate) {
     db[modelName].associate(db);

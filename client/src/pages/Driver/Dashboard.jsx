@@ -17,6 +17,7 @@ import {
   Scale,
   Truck,
   Upload,
+LocateFixed,
   User,
 } from "lucide-react";
 
@@ -50,6 +51,58 @@ const DriverDashboard = () => {
       toast.error("Failed to fetch orders");
     }
   };
+
+  const handleSendCurrentLocation = (orderId) => {
+  if (!navigator.geolocation) {
+    toast.error("Location is not supported on this device.");
+    return;
+  }
+
+  toast.loading("Getting current location...", {
+    id: "location-update",
+  });
+
+  navigator.geolocation.getCurrentPosition(
+    async (position) => {
+      try {
+        const { latitude, longitude, accuracy } = position.coords;
+
+await API.post(`/order-locations/${orderId}`, {
+  latitude,
+  longitude,
+  accuracy,
+});
+
+        toast.success("Location updated successfully!", {
+          id: "location-update",
+        });
+
+        fetchOrders();
+      } catch (error) {
+        console.error("Location update error:", error);
+
+        toast.error(
+          error.response?.data?.message || "Error updating location",
+          {
+            id: "location-update",
+          }
+        );
+      }
+    },
+    (error) => {
+      console.error("Location permission error:", error);
+
+      toast.error("Please allow location access to update your location.", {
+        id: "location-update",
+      });
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 15000,
+      maximumAge: 0,
+    }
+  );
+};
 
   useEffect(() => {
     fetchOrders();
@@ -405,6 +458,8 @@ const DriverDashboard = () => {
                     <th className="px-4 py-4">TO</th>
                     <th className="px-4 py-4">STATUS</th>
                     <th className="px-4 py-4">DATE</th>
+                    <th className="px-4 py-4">UPDATE LOCATION</th>
+
                   </tr>
                 </thead>
 
@@ -440,12 +495,35 @@ const DriverDashboard = () => {
                             {getStatusLabel(order.status)}
                           </span>
                         </td>
-
                         <td className="px-4 py-4 text-sky-100">
                           {order.createdAt
                             ? new Date(order.createdAt).toLocaleDateString()
                             : "N/A"}
                         </td>
+
+                        <td className="px-4 py-4">
+  {["approved", "loading", "in_transit", "offloading"].includes(
+    order.status
+  ) ? (
+    <button
+      type="button"
+      onClick={() => handleSendCurrentLocation(order.id)}
+      className="group relative flex h-14 w-14 items-center justify-center rounded-full border border-sky-300 bg-sky-400/20 text-sky-200 shadow-lg shadow-sky-400/20 transition hover:scale-110 hover:bg-blue-700 hover:text-white"
+      title="Send current location"
+    >
+      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-300 opacity-30" />
+      <LocateFixed
+        size={28}
+        className="relative z-10 animate-pulse"
+      />
+    </button>
+  ) : (
+    <span className="text-xs font-semibold text-sky-200">
+      Not active
+    </span>
+  )}
+</td>
+
                       </tr>
                     ))
                   ) : (

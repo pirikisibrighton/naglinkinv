@@ -428,17 +428,18 @@ const CustomerDashboard = () => {
             </div>
 
             <div className="overflow-x-auto rounded-md border border-white/20">
-              <table className="w-full min-w-[760px] text-left text-sm">
-                <thead className="bg-white/10 text-sky-100">
-                  <tr>
-                    <th className="px-4 py-4">ORDER</th>
-                    <th className="px-4 py-4">FROM</th>
-                    <th className="px-4 py-4">TO</th>
-                    <th className="px-4 py-4">WEIGHT</th>
-                    <th className="px-4 py-4">STATUS</th>
-                    <th className="px-4 py-4">DATE</th>
-                  </tr>
-                </thead>
+  <table className="w-full min-w-[1000px] text-left text-sm">
+    <thead className="bg-white/10 text-sky-100">
+      <tr>
+        <th className="px-4 py-4">ORDER</th>
+        <th className="px-4 py-4">FROM</th>
+        <th className="px-4 py-4">TO</th>
+        <th className="px-4 py-4">WEIGHT</th>
+        <th className="px-4 py-4">STATUS</th>
+        <th className="px-4 py-4">LOCATIONS</th>
+        <th className="px-4 py-4">DATE</th>
+      </tr>
+    </thead>
 
                 <tbody>
                   {latestOrders.length > 0 ? (
@@ -464,27 +465,49 @@ const CustomerDashboard = () => {
                         </td>
 
                         <td className="px-4 py-4">
-                          <span
-                            className={`rounded-full px-3 py-1 text-xs font-black ${getStatusColor(
-                              order.status
-                            )}`}
-                          >
-                            {order.status?.replace("_", " ").toUpperCase() ||
-                              "PENDING"}
-                          </span>
-                        </td>
+  <span
+    className={`rounded-full px-3 py-1 text-xs font-black ${getStatusColor(
+      order.status
+    )}`}
+  >
+    {order.status?.replace("_", " ").toUpperCase() || "PENDING"}
+  </span>
+</td>
 
-                        <td className="px-4 py-4 text-sky-100">
-                          {order.createdAt
-                            ? new Date(order.createdAt).toLocaleDateString()
-                            : "N/A"}
-                        </td>
+<td className="px-4 py-4">
+  <div className="max-h-28 space-y-2 overflow-y-auto">
+    {order.locations?.length > 0 ? (
+      order.locations.map((location) => (
+        <div
+          key={location.id}
+          className="rounded-md border border-white/10 bg-white/10 p-2"
+        >
+          <p className="font-bold text-sky-100">
+            {location.locationName}
+          </p>
+
+          <p className="text-xs text-sky-200">
+            {new Date(location.createdAt).toLocaleString()}
+          </p>
+        </div>
+      ))
+    ) : (
+      <span className="text-xs text-sky-200">No updates</span>
+    )}
+  </div>
+</td>
+
+<td className="px-4 py-4 text-sky-100">
+  {order.createdAt
+    ? new Date(order.createdAt).toLocaleDateString()
+    : "N/A"}
+</td>
                       </tr>
                     ))
                   ) : (
                     <tr>
                       <td
-                        colSpan="6"
+                        colSpan="7"
                         className="px-4 py-8 text-center font-semibold text-sky-100"
                       >
                         No recent orders found
@@ -573,6 +596,31 @@ const CustomerDashboard = () => {
                             <p>Contact: {order.driver.email}</p>
                           </div>
                         )}
+
+                        <div className="mt-4 rounded-md border border-white/10 bg-white/10 p-3 text-sm text-sky-100">
+  <p className="mb-2 font-black text-white">Location Updates</p>
+
+  {order.locations?.length > 0 ? (
+    <div className="space-y-2">
+      {order.locations.map((location) => (
+        <div
+          key={location.id}
+          className="rounded-md border border-white/10 bg-white/10 p-2"
+        >
+          <p className="font-bold text-sky-100">
+            {location.locationName}
+          </p>
+
+          <p className="text-xs text-sky-200">
+            {new Date(location.createdAt).toLocaleString()}
+          </p>
+        </div>
+      ))}
+    </div>
+  ) : (
+    <p className="text-xs text-sky-200">No location updates yet</p>
+  )}
+</div>
                       </div>
                     </div>
 
@@ -597,6 +645,8 @@ const CustomerDashboard = () => {
                     )}
                   </div>
                 ))}
+
+
               </div>
             )}
           </div>

@@ -1,36 +1,37 @@
-const db = require('../models');
+const db = require("../models");
+
 const Order = db.Order;
 const User = db.User;
 const Truck = db.Truck;
-const { Op } = require('sequelize');
+const OrderLocation = db.OrderLocation;
 
 // Customer creates a new order
 const createOrder = async (req, res) => {
   try {
-    const {
-      pickupLocation,
-      deliveryLocation,
-      goodsDescription,
-      weight
-    } = req.body;
-    
+    const { pickupLocation, deliveryLocation, goodsDescription, weight } =
+      req.body;
+
     const order = await Order.create({
       customerId: req.userId,
       pickupLocation,
       deliveryLocation,
       goodsDescription,
       weight,
-      status: 'pending',
-      approvalStatus: 'pending'
+      status: "pending",
+      approvalStatus: "pending",
     });
-    
+
     res.status(201).json({
-      message: 'Order created successfully. Waiting for admin approval.',
-      order
+      message: "Order created successfully. Waiting for admin approval.",
+      order,
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error creating order', error: error.message });
+    console.error("Create order error:", error);
+
+    res.status(500).json({
+      message: "Error creating order",
+      error: error.message,
+    });
   }
 };
 
@@ -40,42 +41,79 @@ const getMyOrders = async (req, res) => {
     const orders = await Order.findAll({
       where: { customerId: req.userId },
       include: [
-        { model: User, as: 'driver', attributes: ['username', 'email', 'phone'] },
-        { model: Truck, as: 'truck', attributes: ['truckName', 'licensePlate', 'imageUrl'] }
+        {
+          model: User,
+          as: "driver",
+          attributes: ["username", "email", "phone"],
+        },
+        {
+          model: Truck,
+          as: "truck",
+          attributes: ["truckName", "licensePlate", "imageUrl"],
+        },
+        {
+          model: OrderLocation,
+          as: "locations",
+          separate: true,
+          order: [["createdAt", "DESC"]],
+        },
       ],
-      order: [['createdAt', 'DESC']]
+      order: [["createdAt", "DESC"]],
     });
-    
+
     res.json({ orders });
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching orders', error: error.message });
+    res.status(500).json({
+      message: "Error fetching orders",
+      error: error.message,
+    });
   }
 };
 
-// Get single order by ID (with permission check)
+// Get single order by ID
 const getOrderById = async (req, res) => {
   try {
     const { id } = req.params;
+
     const order = await Order.findByPk(id, {
       include: [
-        { model: User, as: 'customer', attributes: ['username', 'email', 'phone', 'companyName'] },
-        { model: User, as: 'driver', attributes: ['username', 'email', 'phone'] },
-        { model: Truck, as: 'truck' }
-      ]
+        {
+          model: User,
+          as: "customer",
+          attributes: ["username", "email", "phone", "companyName"],
+        },
+        {
+          model: User,
+          as: "driver",
+          attributes: ["username", "email", "phone"],
+        },
+        {
+          model: Truck,
+          as: "truck",
+        },
+        {
+          model: OrderLocation,
+          as: "locations",
+          separate: true,
+          order: [["createdAt", "DESC"]],
+        },
+      ],
     });
-    
+
     if (!order) {
-      return res.status(404).json({ message: 'Order not found' });
+      return res.status(404).json({ message: "Order not found" });
     }
-    
-    // Check permission: customer can see their own, admin/driver can see all
-    if (req.user.role === 'customer' && order.customerId !== req.userId) {
-      return res.status(403).json({ message: 'Access denied' });
+
+    if (req.user.role === "customer" && order.customerId !== req.userId) {
+      return res.status(403).json({ message: "Access denied" });
     }
-    
+
     res.json({ order });
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching order', error: error.message });
+    res.status(500).json({
+      message: "Error fetching order",
+      error: error.message,
+    });
   }
 };
 
@@ -148,64 +186,89 @@ const approveOrder = async (req, res) => {
     });
   }
 };
+
 // Admin gets all orders
 const getAllOrders = async (req, res) => {
   try {
     const orders = await Order.findAll({
       include: [
-        { model: User, as: 'customer', attributes: ['username', 'email', 'phone', 'companyName'] },
-        { model: User, as: 'driver', attributes: ['username', 'email', 'phone'] },
-        { model: Truck, as: 'truck' }
+        {
+          model: User,
+          as: "customer",
+          attributes: ["username", "email", "phone", "companyName"],
+        },
+        {
+          model: User,
+          as: "driver",
+          attributes: ["username", "email", "phone"],
+        },
+        {
+          model: Truck,
+          as: "truck",
+        },
+        {
+          model: OrderLocation,
+          as: "locations",
+          separate: true,
+          order: [["createdAt", "DESC"]],
+        },
       ],
-      order: [['createdAt', 'DESC']]
+      order: [["createdAt", "DESC"]],
     });
-    
+
     res.json({ orders });
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching orders', error: error.message });
+    res.status(500).json({
+      message: "Error fetching orders",
+      error: error.message,
+    });
   }
 };
 
-// Driver updates order status (in_transit, delivered)
+// Driver updates order status
 const updateOrderStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
-    
+
     const order = await Order.findByPk(id);
+
     if (!order) {
-      return res.status(404).json({ message: 'Order not found' });
+      return res.status(404).json({ message: "Order not found" });
     }
-    
-    // Driver can only update orders assigned to them
-    if (req.user.role === 'driver' && order.driverId !== req.userId) {
-      return res.status(403).json({ message: 'Access denied' });
+
+    if (req.user.role === "driver" && order.driverId !== req.userId) {
+      return res.status(403).json({ message: "Access denied" });
     }
-    
-    const validStatuses = ['in_transit', 'delivered', 'cancelled'];
+
+    const validStatuses = ["in_transit", "delivered", "cancelled"];
+
     if (!validStatuses.includes(status)) {
-      return res.status(400).json({ message: 'Invalid status' });
+      return res.status(400).json({ message: "Invalid status" });
     }
-    
+
     await order.update({ status });
-    
-    // If delivered, free up the truck
-    if (status === 'delivered') {
-      if (order.truckId) {
-        await Truck.update({ isAvailable: true }, { where: { id: order.truckId } });
-      }
+
+    if (status === "delivered" && order.truckId) {
+      await Truck.update(
+        { isAvailable: true },
+        { where: { id: order.truckId } }
+      );
     }
-    
+
     res.json({
       message: `Order status updated to ${status}`,
-      order
+      order,
     });
   } catch (error) {
-    res.status(500).json({ message: 'Error updating order status', error: error.message });
+    res.status(500).json({
+      message: "Error updating order status",
+      error: error.message,
+    });
   }
 };
 
-// Track order (public tracking)
+// Track order publicly
 const trackOrder = async (req, res) => {
   try {
     const { trackingNumber } = req.params;
@@ -231,6 +294,12 @@ const trackOrder = async (req, res) => {
           as: "driver",
           attributes: ["username", "email", "phone"],
         },
+        {
+          model: OrderLocation,
+          as: "locations",
+          separate: true,
+          order: [["createdAt", "DESC"]],
+        },
       ],
     });
 
@@ -254,5 +323,5 @@ module.exports = {
   approveOrder,
   getAllOrders,
   updateOrderStatus,
-  trackOrder
+  trackOrder,
 };

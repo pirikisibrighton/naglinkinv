@@ -14,6 +14,7 @@ const emailRoutes = require('./routes/emailRoutes');
 const driverRoutes = require('./routes/driverRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const userRoutes = require('./routes/userRoutes');
+const orderLocationRoutes = require("./routes/orderLocationRoutes");
 
 const multiTruckRoutes = require('./routes/multiTruckRoutes');
 
@@ -26,6 +27,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use("/api/order-locations", orderLocationRoutes);
 
 // Serve static files from uploads folder (for truck images)
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
