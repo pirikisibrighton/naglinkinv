@@ -1,9 +1,15 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, PackageSearch } from "lucide-react";
+import {
+  ArrowRight,
+  PackageSearch,
+  Truck,
+  Warehouse,
+  Globe2,
+  ShieldCheck,
+} from "lucide-react";
 
-import Services from "./Services";
 import About from "./About";
 import Fleet from "./Fleet";
 import Contact from "./Contact";
@@ -16,8 +22,6 @@ import hero5 from "../../assets/images/hero/DSC05311.jpg";
 import hero6 from "../../assets/images/hero/DSC05400.jpg";
 import hero7 from "../../assets/images/hero/DSC05403.jpg";
 
-import serviceVideo from "../../assets/videos/service-video.mp4";
-
 function Home() {
   const images = [hero1, hero2, hero3, hero4, hero5, hero6, hero7];
   const [current, setCurrent] = useState(0);
@@ -25,85 +29,108 @@ function Home() {
   useEffect(() => {
     const slider = setInterval(() => {
       setCurrent((prev) => (prev + 1) % images.length);
-    }, 3000);
+    }, 4000);
 
     return () => clearInterval(slider);
   }, [images.length]);
 
+  const services = [
+    {
+      title: "Freight Forwarding",
+      description:
+        "Secure and efficient cargo movement across Southern Africa.",
+      icon: <Truck size={40} />,
+    },
+    {
+      title: "Warehousing",
+      description: "Safe storage and inventory management for goods.",
+      icon: <Warehouse size={40} />,
+    },
+    {
+      title: "Cross-Border Transport",
+      description:
+        "Reliable transport and customs coordination across borders.",
+      icon: <Globe2 size={40} />,
+    },
+    {
+      title: "Secure Logistics",
+      description:
+        "Professional handling with real-time shipment tracking.",
+      icon: <ShieldCheck size={40} />,
+    },
+  ];
+
   return (
-    <main className="min-h-screen bg-gradient-to-r from-blue-950 via-sky-300 to-white">
-      {/* HERO SECTION */}
-      <section id="Home" className="px-2 pb-8 lg:px-4">
+    <main className="min-h-screen bg-white">
+      {/* HERO */}
+      <section className="px-3 py-4 lg:px-6">
         <div className="mx-auto max-w-[1500px]">
-          <div className="relative min-h-[80vh] overflow-hidden rounded-none rounded-bl-[70px] border border-white/40 bg-white/10 shadow-2xl shadow-blue-950/30 backdrop-blur">
+          <div className="relative overflow-hidden rounded-3xl shadow-2xl">
             <AnimatePresence mode="wait">
               <motion.img
                 key={current}
                 src={images[current]}
-                alt="Logistics truck"
+                alt="Logistics"
                 initial={{ opacity: 0, scale: 1.08 }}
                 animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 1.02 }}
+                exit={{ opacity: 0 }}
                 transition={{ duration: 1 }}
                 className="absolute inset-0 h-full w-full object-cover"
               />
             </AnimatePresence>
 
-            <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/45 to-blue-950/20" />
+            <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/70 to-black/40" />
 
-            <div className="relative z-10 flex min-h-[80vh] flex-col justify-center px-6 py-16 md:px-14 lg:px-20">
+            <div className="relative z-10 flex min-h-[88vh] items-center px-6 py-20 md:px-14 lg:px-24">
               <motion.div
                 initial={{ opacity: 0, y: 35 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.7 }}
-                className="max-w-3xl"
+                className="max-w-4xl"
               >
-                <p className="mb-5 inline-flex rounded-full border border-white/40 bg-white/15 px-5 py-2 text-sm font-semibold text-white shadow backdrop-blur">
-                  Trusted Howo & Tipper Truck Logistics
+                <p className="mb-6 inline-flex rounded-full bg-orange-500/10 px-5 py-2 text-sm font-semibold text-orange-300">
+                  Trusted Cross-Border Logistics
                 </p>
 
-                <h1 className="text-4xl font-extrabold leading-tight text-white md:text-6xl lg:text-7xl">
-                  Moving your cargo safely,
-                  <span className="block text-sky-300">
-                    from pickup to delivery.
+                <h1 className="text-4xl font-extrabold text-white md:text-6xl lg:text-7xl">
+                  Reliable Freight &
+                  <span className="block text-orange-400">
+                    Logistics Across Africa
                   </span>
                 </h1>
 
-                <p className="mt-6 max-w-2xl text-lg font-medium leading-8 text-slate-100 md:text-xl">
-                  Request a quote, book transport orders, and track your
-                  deliveries through a modern logistics system built for
-                  reliable trucking operations.
+                <p className="mt-8 text-lg text-slate-200 md:text-xl">
+                  Fast, secure, and tracked transport solutions for businesses
+                  and individuals across Southern Africa.
                 </p>
 
                 <div className="mt-10 flex flex-col gap-4 sm:flex-row">
                   <Link
-                    to="/login"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-white bg-white/10 px-8 py-4 text-lg font-semibold text-white shadow backdrop-blur transition hover:border-blue-700 hover:bg-blue-700 hover:text-white"
+                    to="/contact"
+                    className="inline-flex items-center gap-2 rounded-xl bg-orange-500 px-8 py-4 text-white font-bold hover:bg-orange-600"
                   >
-                    Request Quote
+                    Get a Quote
                     <ArrowRight size={22} />
                   </Link>
 
                   <Link
                     to="/track-order"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-8 py-4 text-lg font-bold text-slate-900 shadow transition hover:bg-blue-700 hover:text-white"
+                    className="inline-flex items-center gap-2 rounded-xl border border-white bg-white/10 px-8 py-4 text-white"
                   >
-                    Track Order
+                    Track Shipment
                     <PackageSearch size={22} />
                   </Link>
                 </div>
               </motion.div>
             </div>
 
-            <div className="absolute bottom-6 left-1/2 z-20 flex -translate-x-1/2 gap-2">
+            {/* dots */}
+            <div className="absolute bottom-6 left-1/2 flex -translate-x-1/2 gap-2">
               {images.map((_, index) => (
                 <button
                   key={index}
                   onClick={() => setCurrent(index)}
-                  className={`h-2.5 rounded-full transition-all ${
-                    current === index
-                      ? "w-8 bg-white"
-                      : "w-2.5 bg-white/50 hover:bg-white"
+                  className={`h-2.5 rounded-full ${
+                    current === index ? "w-8 bg-orange-500" : "w-2.5 bg-white/50"
                   }`}
                 />
               ))}
@@ -112,48 +139,81 @@ function Home() {
         </div>
       </section>
 
-      {/* SERVICES */}
-      <section id="Services" className="relative">
-        <div className="px-4 pt-16 sm:px-6 md:px-12 lg:px-20">
-          <div className="mb-12 text-center">
-            <h1 className="mb-2 text-3xl font-bold text-blue-950 sm:text-5xl">
-              OUR{" "}
-              <span className="font-light underline decoration-1 underline-offset-8">
-                SERVICES
-              </span>
-            </h1>
-
-            <p className="mx-auto mt-5 max-w-2xl text-center text-lg font-medium leading-8 text-slate-700">
-              Reliable truck hire, tipper hire, cargo movement, and
-              professional delivery support for your transport needs.
-            </p>
+      {/* STATS */}
+      <section className="px-6 py-16">
+        <div className="mx-auto grid max-w-7xl gap-8 rounded-3xl bg-slate-100 p-10 md:grid-cols-4">
+          <div className="text-center">
+            <h2 className="text-5xl font-bold text-orange-500">10+</h2>
+            <p>Years Experience</p>
+          </div>
+          <div className="text-center">
+            <h2 className="text-5xl font-bold text-orange-500">5000+</h2>
+            <p>Deliveries</p>
+          </div>
+          <div className="text-center">
+            <h2 className="text-5xl font-bold text-orange-500">8+</h2>
+            <p>Countries</p>
+          </div>
+          <div className="text-center">
+            <h2 className="text-5xl font-bold text-orange-500">98%</h2>
+            <p>On-Time</p>
           </div>
         </div>
-
-        <div className="pointer-events-none absolute right-4 top-[170px] z-30 hidden lg:block">
-          <div className="h-[430px] w-[430px] overflow-hidden bg-gradient-to-r from-blue-950 via-sky-500 to-blue-800 p-7 shadow-2xl">
-            <video
-              src={serviceVideo}
-              autoPlay
-              muted
-              loop
-              playsInline
-              className="h-full w-full object-cover"
-            />
-          </div>
-        </div>
-
-        <Services />
       </section>
 
+      {/* SERVICES */}
+      <section className="px-6 py-20">
+        <div className="mx-auto max-w-7xl text-center">
+          <h2 className="text-4xl font-bold md:text-5xl">
+            Our Services
+          </h2>
+          <p className="mt-6 text-slate-600">
+            Reliable logistics solutions across Africa.
+          </p>
+
+          <div className="mt-12 grid gap-8 md:grid-cols-2 lg:grid-cols-4">
+            {services.map((s, i) => (
+              <div key={i} className="rounded-3xl border bg-white p-8 shadow">
+                <div className="text-orange-500 mb-4">{s.icon}</div>
+                <h3 className="text-xl font-bold">{s.title}</h3>
+                <p className="mt-2 text-slate-600">{s.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ABOUT */}
       <section id="About">
         <About />
       </section>
 
-      <section id="Portfolio">
+      {/* FLEET */}
+      <section id="Fleet">
         <Fleet />
       </section>
 
+      {/* CTA */}
+      <section className="px-6 py-20">
+        <div className="mx-auto max-w-7xl rounded-3xl bg-[#0B1F3A] p-12 text-center text-white">
+          <h2 className="text-4xl font-bold md:text-5xl">
+            Need Reliable Freight Solutions?
+          </h2>
+          <p className="mt-6 text-slate-300">
+            Partner with Naglink Investments today.
+          </p>
+
+          <Link
+            to="/contact"
+            className="mt-10 inline-flex items-center gap-2 rounded-xl bg-orange-500 px-8 py-4 font-bold hover:bg-orange-600"
+          >
+            Contact Us
+            <ArrowRight size={22} />
+          </Link>
+        </div>
+      </section>
+
+      {/* CONTACT */}
       <section id="Contact">
         <Contact />
       </section>

@@ -80,12 +80,12 @@ function Contact() {
 
               <div className="space-y-7">
                 {[
-                  ["Phone", "+263 71 037 2685", Phone],
-                  ["Email", "naglinkinvestments@gmail.com", Mail],
+                  ["Phone", "+263 78 591 7545", Phone],
+                  ["Email", "info@naglink.co.zw", Mail],
                   ["Address", "408 Sheerwood Road Strathaven,Harare,Zimbabwe", MapPin],
                   [
                     "Working Hours",
-                    "Monday - Saturday, 8:00 AM - 5:00 PM",
+                    "Monday - Saturday, 8:00 AM - 7:00 PM",
                     Clock,
                   ],
                 ].map(([title, value, Icon]) => (
