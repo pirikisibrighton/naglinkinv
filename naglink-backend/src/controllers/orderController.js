@@ -4,6 +4,8 @@ const Order = db.Order;
 const User = db.User;
 const Truck = db.Truck;
 const OrderLocation = db.OrderLocation;
+const Expense = db.Expense;
+const PDFDocument = require("pdfkit");
 
 // Customer creates a new order
 const createOrder = async (req, res) => {
@@ -315,6 +317,145 @@ const trackOrder = async (req, res) => {
     });
   }
 };
+const getExpenses = async (req, res) => {
+  try {
+    const expenses = await Expense.findAll({
+      include: [
+        {
+          model: Order,
+          as: "order",
+          include: [
+            { model: User, as: "customer", attributes: ["username", "email", "phone"] },
+            { model: User, as: "driver", attributes: ["username", "email", "phone"] },
+            { model: Truck, as: "truck" },
+          ],
+        },
+      ],
+      order: [["createdAt", "DESC"]],
+    });
+
+    res.json({ expenses });
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching expenses", error: error.message });
+  }
+};
+
+const addOrderExpenses = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const {
+      fuel,
+      tollgate,
+      maintenance,
+      driverAllowance,
+      loadingCost,
+      offloadingCost,
+      otherDescription,
+      otherCost,
+    } = req.body;
+
+    const order = await Order.findByPk(id);
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    const totalAmount =
+      Number(fuel || 0) +
+      Number(tollgate || 0) +
+      Number(maintenance || 0) +
+      Number(driverAllowance || 0) +
+      Number(loadingCost || 0) +
+      Number(offloadingCost || 0) +
+      Number(otherCost || 0);
+
+    const expense = await Expense.create({
+      orderId: id,
+      fuel: fuel || 0,
+      tollgate: tollgate || 0,
+      maintenance: maintenance || 0,
+      driverAllowance: driverAllowance || 0,
+      loadingCost: loadingCost || 0,
+      offloadingCost: offloadingCost || 0,
+      otherDescription,
+      otherCost: otherCost || 0,
+      totalAmount,
+    });
+
+    res.status(201).json({
+      message: "Expenses added successfully",
+      expense,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Error adding expenses", error: error.message });
+  }
+};
+
+const downloadOrderExpensesPDF = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const expenses = await Expense.findAll({
+      where: { orderId: id },
+      include: [
+        {
+          model: Order,
+          as: "order",
+          include: [
+            { model: User, as: "customer", attributes: ["username", "email", "phone"] },
+            { model: User, as: "driver", attributes: ["username", "email", "phone"] },
+            { model: Truck, as: "truck" },
+          ],
+        },
+      ],
+    });
+
+    if (!expenses.length) {
+      return res.status(404).json({ message: "No expenses found for this order" });
+    }
+
+    const order = expenses[0].order;
+    const doc = new PDFDocument({ margin: 50 });
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename=order_${id}_expenses.pdf`);
+
+    doc.pipe(res);
+
+    doc.fontSize(22).text("Order Expenses Report", { align: "center" });
+    doc.moveDown();
+
+    doc.fontSize(12).text(`Order: #${order.id}`);
+    doc.text(`Customer: ${order.customer?.username || "N/A"}`);
+    doc.text(`Driver: ${order.driver?.username || "N/A"}`);
+    doc.text(`Truck: ${order.truck?.truckName || "N/A"}`);
+    doc.text(`Route: ${order.pickupLocation || "N/A"} to ${order.deliveryLocation || "N/A"}`);
+    doc.moveDown();
+
+    let grandTotal = 0;
+
+    expenses.forEach((expense, index) => {
+      grandTotal += Number(expense.totalAmount || 0);
+
+      doc.fontSize(14).text(`Expense Entry ${index + 1}`, { underline: true });
+      doc.fontSize(11).text(`Fuel: $${expense.fuel || 0}`);
+      doc.text(`Tollgate: $${expense.tollgate || 0}`);
+      doc.text(`Maintenance: $${expense.maintenance || 0}`);
+      doc.text(`Driver Allowance: $${expense.driverAllowance || 0}`);
+      doc.text(`Loading Cost: $${expense.loadingCost || 0}`);
+      doc.text(`Offloading Cost: $${expense.offloadingCost || 0}`);
+      doc.text(`Other: ${expense.otherDescription || "N/A"} - $${expense.otherCost || 0}`);
+      doc.text(`Total: $${Number(expense.totalAmount || 0).toFixed(2)}`);
+      doc.moveDown();
+    });
+
+    doc.fontSize(16).text(`Grand Total: $${grandTotal.toFixed(2)}`, { align: "right" });
+    doc.end();
+  } catch (error) {
+    res.status(500).json({ message: "Error generating PDF", error: error.message });
+  }
+};
 
 module.exports = {
   createOrder,
@@ -324,4 +465,7 @@ module.exports = {
   getAllOrders,
   updateOrderStatus,
   trackOrder,
+  getExpenses,
+  addOrderExpenses,
+  downloadOrderExpensesPDF,
 };

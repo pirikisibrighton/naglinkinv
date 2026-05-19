@@ -22,6 +22,8 @@ import {
   Search,
   XCircle,
   MapPin,
+  ReceiptText,
+  Download,
 } from "lucide-react";
 
 const AdminDashboard = () => {
@@ -41,8 +43,13 @@ const AdminDashboard = () => {
   const [editingTruck, setEditingTruck] = useState(null);
 
   const [quotes, setQuotes] = useState([]);
-const [selectedQuote, setSelectedQuote] = useState(null);
-const [showQuoteModal, setShowQuoteModal] = useState(false);
+  const [selectedQuote, setSelectedQuote] = useState(null);
+  const [showQuoteModal, setShowQuoteModal] = useState(false);
+
+  const [expenses, setExpenses] = useState([]);
+  const [showExpenseForm, setShowExpenseForm] = useState(false);
+  const [expenseOrder, setExpenseOrder] = useState(null);
+
 
 const [quoteReplyData, setQuoteReplyData] = useState({
   estimatedPrice: "",
@@ -64,6 +71,22 @@ const [quoteReplyData, setQuoteReplyData] = useState({
     departureTime: "",
     forecastedArrival: "",
   });
+
+
+
+  const [expenseData, setExpenseData] = useState({
+  fuel: "",
+  tollgate: "",
+  maintenance: "",
+  driverAllowance: "",
+  loadingCost: "",
+  offloadingCost: "",
+  otherDescription: "",
+  otherCost: "",
+});
+
+
+
 
   const [truckData, setTruckData] = useState({
     truckName: "",
@@ -89,6 +112,7 @@ const [quoteReplyData, setQuoteReplyData] = useState({
     fetchTrucks();
     fetchDrivers();
     fetchQuotes();
+    fetchExpenses();
   }, []);
 
   const fetchDashboardStats = async () => {
@@ -174,6 +198,82 @@ const fetchQuotes = async () => {
     toast.error("Error fetching quotes");
   }
 };
+
+
+const fetchExpenses = async () => {
+  try {
+    const response = await API.get("/orders/expenses/all");
+    setExpenses(response.data.expenses || []);
+  } catch (error) {
+    console.error("Error fetching expenses:", error);
+  }
+};
+
+const handleOpenExpenseForm = (order) => {
+  setExpenseOrder(order);
+  setExpenseData({
+    fuel: "",
+    tollgate: "",
+    maintenance: "",
+    driverAllowance: "",
+    loadingCost: "",
+    offloadingCost: "",
+    otherDescription: "",
+    otherCost: "",
+  });
+  setShowExpenseForm(true);
+};
+
+const handleSubmitExpense = async (e) => {
+  e.preventDefault();
+
+  try {
+    await API.post(`/orders/${expenseOrder.id}/expenses`, expenseData);
+
+    toast.success("Expenses added successfully!");
+    setShowExpenseForm(false);
+    setExpenseOrder(null);
+
+    fetchExpenses();
+    fetchOrders();
+  } catch (error) {
+    toast.error(error.response?.data?.message || "Error adding expenses");
+  }
+};
+
+const handleDownloadExpensePDF = async (orderId) => {
+  try {
+    const response = await API.get(`/orders/${orderId}/expenses/pdf`, {
+      responseType: "blob",
+    });
+
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.setAttribute("download", `order_${orderId}_expenses.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    toast.success("Expenses PDF downloaded!");
+  } catch (error) {
+    toast.error("Error downloading expenses PDF");
+  }
+};
+
+const getExpenseTotal = (expense) => {
+  return (
+    Number(expense.fuel || 0) +
+    Number(expense.tollgate || 0) +
+    Number(expense.maintenance || 0) +
+    Number(expense.driverAllowance || 0) +
+    Number(expense.loadingCost || 0) +
+    Number(expense.offloadingCost || 0) +
+    Number(expense.otherCost || 0)
+  );
+};
+
 
 const handleOpenQuote = async (quote) => {
   console.log("Opening quote:", quote);
@@ -545,6 +645,7 @@ const getFilteredDrivers = () => {
         { key: "trucks", label: "Trucks" },
         { key: "drivers", label: "Drivers" },
         { key: "quotes", label: "Quotes" },
+        { key: "expenses", label: "Expenses" },
       ]}
     >
       <div className="space-y-8">
@@ -914,7 +1015,7 @@ const getFilteredDrivers = () => {
       </div>
 
       <div className="overflow-x-auto rounded-md border border-white/20">
-        <table className="w-full min-w-[1600px] text-left text-sm">
+        <table className="w-full min-w-[1750px] text-left text-sm">
           <thead className="bg-white/10 text-sky-100">
             <tr>
               <th className="px-4 py-4">ORDER</th>
@@ -926,6 +1027,7 @@ const getFilteredDrivers = () => {
               <th className="px-4 py-4">STATUS</th>
               <th className="px-4 py-4">DRIVER/TRUCK</th>
               <th className="px-4 py-4">SCHEDULE</th>
+              <th className="px-4 py-4">EXPENSES</th>
               <th className="px-4 py-4">ACTIONS</th>
               <th className="px-4 py-4">LOCATION UPDATES</th>
             </tr>
@@ -1032,6 +1134,16 @@ const getFilteredDrivers = () => {
                         ? new Date(order.forecastedArrival).toLocaleString()
                         : "N/A"}
                     </p>
+                  </td>
+
+                  <td className="min-w-[180px] px-4 py-4">
+                    <button
+                      onClick={() => handleOpenExpenseForm(order)}
+                      className="flex items-center justify-center gap-2 rounded-lg border border-orange-300 bg-orange-100 px-4 py-2 text-xs font-semibold text-orange-700 transition hover:bg-orange-200"
+                    >
+                      <ReceiptText size={15} />
+                      Add Expenses
+                    </button>
                   </td>
 
                   <td className="min-w-[320px] px-4 py-4">
@@ -1272,6 +1384,99 @@ const getFilteredDrivers = () => {
     </div>
   </div>
 )}
+
+{activeTab === "expenses" && (
+  <div className="rounded-md border border-white/20 bg-gradient-to-br from-blue-950 via-sky-800 to-blue-900 p-4 text-white shadow-xl sm:p-6">
+    <div className="mb-6">
+      <h2 className="text-2xl font-black text-white sm:text-3xl">
+        Order Expenses
+      </h2>
+
+      <p className="mt-1 text-sm font-medium text-sky-100">
+        View all expenses linked to orders, customers, trucks and drivers.
+      </p>
+    </div>
+
+    <div className="overflow-x-auto rounded-md border border-white/20">
+      <table className="w-full min-w-[1300px] text-left text-sm">
+        <thead className="bg-white/10 text-sky-100">
+          <tr>
+            <th className="px-4 py-4">ORDER</th>
+            <th className="px-4 py-4">CUSTOMER</th>
+            <th className="px-4 py-4">DRIVER</th>
+            <th className="px-4 py-4">TRUCK</th>
+            <th className="px-4 py-4">FUEL</th>
+            <th className="px-4 py-4">TOLLGATE</th>
+            <th className="px-4 py-4">MAINTENANCE</th>
+            <th className="px-4 py-4">ALLOWANCE</th>
+            <th className="px-4 py-4">OTHER</th>
+            <th className="px-4 py-4">TOTAL</th>
+            <th className="px-4 py-4">PDF</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {expenses.length === 0 ? (
+            <tr>
+              <td
+                colSpan="11"
+                className="px-4 py-10 text-center font-semibold text-sky-100"
+              >
+                No expenses found
+              </td>
+            </tr>
+          ) : (
+            expenses.map((expense) => (
+              <tr
+                key={expense.id}
+                className="border-t border-white/10 text-sky-50 transition hover:bg-white/10"
+              >
+                <td className="px-4 py-4 font-black text-white">
+                  #{expense.order?.id || expense.orderId}
+                </td>
+
+                <td className="px-4 py-4">
+                  {expense.order?.customer?.username || "N/A"}
+                </td>
+
+                <td className="px-4 py-4">
+                  {expense.order?.driver?.username || "N/A"}
+                </td>
+
+                <td className="px-4 py-4">
+                  {expense.order?.truck?.truckName || "N/A"}
+                </td>
+
+                <td className="px-4 py-4">${expense.fuel || 0}</td>
+                <td className="px-4 py-4">${expense.tollgate || 0}</td>
+                <td className="px-4 py-4">${expense.maintenance || 0}</td>
+                <td className="px-4 py-4">${expense.driverAllowance || 0}</td>
+                <td className="px-4 py-4">${expense.otherCost || 0}</td>
+
+                <td className="px-4 py-4 font-black text-green-300">
+                  ${getExpenseTotal(expense).toFixed(2)}
+                </td>
+
+                <td className="px-4 py-4">
+                  <button
+                    onClick={() =>
+                      handleDownloadExpensePDF(expense.order?.id || expense.orderId)
+                    }
+                    className="flex items-center justify-center gap-2 rounded-lg border border-emerald-300 bg-emerald-100 px-4 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-200"
+                  >
+                    <Download size={15} />
+                    PDF
+                  </button>
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  </div>
+)}
+
  {activeTab === "trucks" && (
   <div>
     {/* TOP RIGHT BUTTON */}
@@ -2212,6 +2417,94 @@ const getFilteredDrivers = () => {
             </div>
           </div>
         )}
+
+
+        {showExpenseForm && expenseOrder && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-blue-950/75 px-3 py-4 backdrop-blur-sm">
+    <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[28px] bg-gradient-to-r from-blue-950 via-sky-500 to-blue-800 p-[4px] shadow-2xl">
+      <div className="rounded-[24px] bg-gradient-to-r from-slate-100 via-sky-100 to-white p-5 sm:p-6">
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-black text-blue-950">
+              Add Expenses - Order #{expenseOrder.id}
+            </h2>
+
+            <p className="mt-2 text-sm font-medium text-slate-600">
+              Add transport expenses for this order.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowExpenseForm(false)}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-950 text-white"
+          >
+            ×
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmitExpense} className="space-y-5">
+          {[
+            ["fuel", "Fuel Cost"],
+            ["tollgate", "Tollgate Cost"],
+            ["maintenance", "Maintenance Cost"],
+            ["driverAllowance", "Driver Allowance"],
+            ["loadingCost", "Loading Cost"],
+            ["offloadingCost", "Offloading Cost"],
+            ["otherCost", "Other Cost"],
+          ].map(([key, label]) => (
+            <div key={key}>
+              <label className={labelClass}>{label}</label>
+              <input
+                type="number"
+                step="0.01"
+                value={expenseData[key]}
+                onChange={(e) =>
+                  setExpenseData({
+                    ...expenseData,
+                    [key]: e.target.value,
+                  })
+                }
+                className={inputClass}
+                placeholder={`Enter ${label.toLowerCase()}`}
+              />
+            </div>
+          ))}
+
+          <div>
+            <label className={labelClass}>Other Description</label>
+            <textarea
+              value={expenseData.otherDescription}
+              onChange={(e) =>
+                setExpenseData({
+                  ...expenseData,
+                  otherDescription: e.target.value,
+                })
+              }
+              className={inputClass}
+              rows="3"
+              placeholder="Describe other expenses"
+            />
+          </div>
+
+          <div className="flex flex-col gap-3 border-t border-sky-200 pt-5 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={() => setShowExpenseForm(false)}
+              className={cancelButton}
+            >
+              Cancel
+            </button>
+
+            <button type="submit" className={primaryButton}>
+              Save Expenses
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+)}
 
         {showEditDriverForm && editingDriver && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-blue-950/75 px-3 py-4 backdrop-blur-sm">
