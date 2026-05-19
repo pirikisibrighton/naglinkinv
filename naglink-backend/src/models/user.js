@@ -5,43 +5,41 @@ const { Model } = require("sequelize");
 module.exports = (sequelize, DataTypes) => {
   class User extends Model {
     static associate(models) {
-      // User has many Orders (as customer)
       User.hasMany(models.Order, {
         foreignKey: "customerId",
         as: "orders",
       });
 
-      // User has many Orders (as driver)
       User.hasMany(models.Order, {
         foreignKey: "driverId",
         as: "driverOrders",
       });
 
-      // User has many Quotes
       User.hasMany(models.Quote, {
         foreignKey: "customerId",
         as: "quotes",
       });
 
-      // User has one Truck (as assigned driver)
       User.hasOne(models.Truck, {
         foreignKey: "assignedDriverId",
         as: "assignedTruck",
       });
 
-      // User has many location updates
       User.hasMany(models.OrderLocation, {
         foreignKey: "driverId",
         as: "locationUpdates",
       });
 
-      // User has many Invoices
+      User.hasMany(models.Notification, {
+        foreignKey: "userId",
+        as: "notifications",
+      });
+
       User.hasMany(models.Invoice, {
         foreignKey: "customerId",
         as: "invoices",
       });
 
-      // User has many Messages (sent)
       User.hasMany(models.Message, {
         foreignKey: "senderId",
         as: "sentMessages",

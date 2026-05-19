@@ -30,6 +30,11 @@ module.exports = (sequelize, DataTypes) => {
         as: "locations",
       });
 
+      Order.hasMany(models.Notification, {
+        foreignKey: "orderId",
+        as: "notifications",
+      });
+
       Order.hasOne(models.Quote, {
         foreignKey: "orderId",
         as: "quote",
