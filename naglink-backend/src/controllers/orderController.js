@@ -5,7 +5,9 @@ const User = db.User;
 const Truck = db.Truck;
 const OrderLocation = db.OrderLocation;
 const Expense = db.Expense;
+
 const PDFDocument = require("pdfkit");
+const createNotification = require("../utils/createNotification");
 
 // Customer creates a new order
 const createOrder = async (req, res) => {
@@ -21,6 +23,14 @@ const createOrder = async (req, res) => {
       weight,
       status: "pending",
       approvalStatus: "pending",
+    });
+
+    await createNotification({
+      roleTarget: "admin",
+      orderId: order.id,
+      title: "New Order Submitted",
+      message: `Order #${order.id} has been submitted and is waiting for approval.`,
+      type: "order_created",
     });
 
     res.status(201).json({
@@ -176,6 +186,24 @@ const approveOrder = async (req, res) => {
       status: "approved",
     });
 
+    await createNotification({
+      userId: order.customerId,
+      roleTarget: "customer",
+      orderId: order.id,
+      title: "Order Approved",
+      message: `Your order #${order.id} has been approved. Price: $${price}.`,
+      type: "order_approved",
+    });
+
+    await createNotification({
+      userId: driverId,
+      roleTarget: "driver",
+      orderId: order.id,
+      title: "New Order Assigned",
+      message: `You have been assigned order #${order.id}.`,
+      type: "order_assigned",
+    });
+
     res.json({
       message: "Order approved successfully",
       order,
@@ -251,6 +279,29 @@ const updateOrderStatus = async (req, res) => {
 
     await order.update({ status });
 
+    await createNotification({
+      userId: order.customerId,
+      roleTarget: "customer",
+      orderId: order.id,
+      title: "Order Status Updated",
+      message: `Order #${order.id} status changed to ${status.replace(
+        "_",
+        " "
+      )}.`,
+      type: "order_status_update",
+    });
+
+    await createNotification({
+      roleTarget: "admin",
+      orderId: order.id,
+      title: "Order Status Updated",
+      message: `Driver updated order #${order.id} to ${status.replace(
+        "_",
+        " "
+      )}.`,
+      type: "order_status_update",
+    });
+
     if (status === "delivered" && order.truckId) {
       await Truck.update(
         { isAvailable: true },
@@ -317,6 +368,7 @@ const trackOrder = async (req, res) => {
     });
   }
 };
+
 const getExpenses = async (req, res) => {
   try {
     const expenses = await Expense.findAll({
@@ -325,8 +377,16 @@ const getExpenses = async (req, res) => {
           model: Order,
           as: "order",
           include: [
-            { model: User, as: "customer", attributes: ["username", "email", "phone"] },
-            { model: User, as: "driver", attributes: ["username", "email", "phone"] },
+            {
+              model: User,
+              as: "customer",
+              attributes: ["username", "email", "phone"],
+            },
+            {
+              model: User,
+              as: "driver",
+              attributes: ["username", "email", "phone"],
+            },
             { model: Truck, as: "truck" },
           ],
         },
@@ -336,7 +396,10 @@ const getExpenses = async (req, res) => {
 
     res.json({ expenses });
   } catch (error) {
-    res.status(500).json({ message: "Error fetching expenses", error: error.message });
+    res.status(500).json({
+      message: "Error fetching expenses",
+      error: error.message,
+    });
   }
 };
 
@@ -388,7 +451,10 @@ const addOrderExpenses = async (req, res) => {
       expense,
     });
   } catch (error) {
-    res.status(500).json({ message: "Error adding expenses", error: error.message });
+    res.status(500).json({
+      message: "Error adding expenses",
+      error: error.message,
+    });
   }
 };
 
@@ -403,8 +469,16 @@ const downloadOrderExpensesPDF = async (req, res) => {
           model: Order,
           as: "order",
           include: [
-            { model: User, as: "customer", attributes: ["username", "email", "phone"] },
-            { model: User, as: "driver", attributes: ["username", "email", "phone"] },
+            {
+              model: User,
+              as: "customer",
+              attributes: ["username", "email", "phone"],
+            },
+            {
+              model: User,
+              as: "driver",
+              attributes: ["username", "email", "phone"],
+            },
             { model: Truck, as: "truck" },
           ],
         },
@@ -412,14 +486,19 @@ const downloadOrderExpensesPDF = async (req, res) => {
     });
 
     if (!expenses.length) {
-      return res.status(404).json({ message: "No expenses found for this order" });
+      return res.status(404).json({
+        message: "No expenses found for this order",
+      });
     }
 
     const order = expenses[0].order;
     const doc = new PDFDocument({ margin: 50 });
 
     res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename=order_${id}_expenses.pdf`);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=order_${id}_expenses.pdf`
+    );
 
     doc.pipe(res);
 
@@ -430,7 +509,11 @@ const downloadOrderExpensesPDF = async (req, res) => {
     doc.text(`Customer: ${order.customer?.username || "N/A"}`);
     doc.text(`Driver: ${order.driver?.username || "N/A"}`);
     doc.text(`Truck: ${order.truck?.truckName || "N/A"}`);
-    doc.text(`Route: ${order.pickupLocation || "N/A"} to ${order.deliveryLocation || "N/A"}`);
+    doc.text(
+      `Route: ${order.pickupLocation || "N/A"} to ${
+        order.deliveryLocation || "N/A"
+      }`
+    );
     doc.moveDown();
 
     let grandTotal = 0;
@@ -438,22 +521,34 @@ const downloadOrderExpensesPDF = async (req, res) => {
     expenses.forEach((expense, index) => {
       grandTotal += Number(expense.totalAmount || 0);
 
-      doc.fontSize(14).text(`Expense Entry ${index + 1}`, { underline: true });
+      doc.fontSize(14).text(`Expense Entry ${index + 1}`, {
+        underline: true,
+      });
       doc.fontSize(11).text(`Fuel: $${expense.fuel || 0}`);
       doc.text(`Tollgate: $${expense.tollgate || 0}`);
       doc.text(`Maintenance: $${expense.maintenance || 0}`);
       doc.text(`Driver Allowance: $${expense.driverAllowance || 0}`);
       doc.text(`Loading Cost: $${expense.loadingCost || 0}`);
       doc.text(`Offloading Cost: $${expense.offloadingCost || 0}`);
-      doc.text(`Other: ${expense.otherDescription || "N/A"} - $${expense.otherCost || 0}`);
+      doc.text(
+        `Other: ${expense.otherDescription || "N/A"} - $${
+          expense.otherCost || 0
+        }`
+      );
       doc.text(`Total: $${Number(expense.totalAmount || 0).toFixed(2)}`);
       doc.moveDown();
     });
 
-    doc.fontSize(16).text(`Grand Total: $${grandTotal.toFixed(2)}`, { align: "right" });
+    doc.fontSize(16).text(`Grand Total: $${grandTotal.toFixed(2)}`, {
+      align: "right",
+    });
+
     doc.end();
   } catch (error) {
-    res.status(500).json({ message: "Error generating PDF", error: error.message });
+    res.status(500).json({
+      message: "Error generating PDF",
+      error: error.message,
+    });
   }
 };
 

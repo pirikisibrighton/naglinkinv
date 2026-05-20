@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   Truck,
@@ -11,6 +11,7 @@ import {
   FileText,
   X,
 } from "lucide-react";
+import API from "../services/api";
 import logo from "../assets/logo.png";
 
 const iconMap = {
@@ -35,8 +36,68 @@ function DashboardLayout({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [localSearch, setLocalSearch] = useState("");
 
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
   const searchValue =
     typeof globalSearch === "string" ? globalSearch : localSearch;
+
+  const fetchUnreadCount = async () => {
+    try {
+      const response = await API.get("/notifications/unread-count");
+      setUnreadCount(response.data.count || 0);
+    } catch (error) {
+      console.error("Error fetching notification count:", error);
+    }
+  };
+
+  const fetchNotifications = async () => {
+    try {
+      const response = await API.get("/notifications");
+      setNotifications(response.data.notifications || []);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchUnreadCount();
+
+    const interval = setInterval(() => {
+      fetchUnreadCount();
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleNotificationClick = async () => {
+    const nextState = !showNotifications;
+    setShowNotifications(nextState);
+
+    if (nextState) {
+      fetchNotifications();
+      fetchUnreadCount();
+    }
+  };
+
+  const handleMarkAsRead = async (notificationId) => {
+    try {
+      await API.put(`/notifications/${notificationId}/read`);
+
+      setNotifications((prev) =>
+        prev.map((notification) =>
+          notification.id === notificationId
+            ? { ...notification, isRead: true }
+            : notification
+        )
+      );
+
+      fetchUnreadCount();
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+    }
+  };
 
   const handleSearchChange = (e) => {
     const value = e.target.value;
@@ -68,7 +129,6 @@ function DashboardLayout({
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        {/* LOGO */}
         <div className="flex h-28 items-center justify-between px-5">
           <a
             href="/"
@@ -91,7 +151,6 @@ function DashboardLayout({
           </button>
         </div>
 
-        {/* SIDEBAR MENU */}
         <nav className="mt-4 space-y-3 px-4">
           {menuItems.map((item) => {
             const Icon = iconMap[item.key] || LayoutDashboard;
@@ -115,7 +174,6 @@ function DashboardLayout({
           })}
         </nav>
 
-        {/* LOGOUT */}
         <div className="absolute bottom-8 left-0 w-full border-t border-white/20 px-4 pt-6">
           <button
             type="button"
@@ -128,12 +186,9 @@ function DashboardLayout({
         </div>
       </aside>
 
-      {/* MAIN */}
       <main className="min-h-screen lg:ml-72">
-        {/* TOPBAR */}
         <header className="sticky top-0 z-20 border-b border-white/30 bg-gradient-to-r from-white via-sky-200 to-blue-950 px-4 py-4 shadow-lg shadow-blue-950/10 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
-            {/* LEFT */}
             <div className="flex items-center justify-between gap-4">
               <button
                 type="button"
@@ -148,7 +203,6 @@ function DashboardLayout({
               </h1>
             </div>
 
-            {/* SEARCH */}
             <div className="relative w-full flex-1">
               <Search
                 size={20}
@@ -164,11 +218,88 @@ function DashboardLayout({
               />
             </div>
 
-            {/* RIGHT */}
             <div className="flex items-center justify-between gap-4 lg:justify-end">
-              <button className="rounded-full bg-white/80 p-3 text-blue-950 shadow-sm transition hover:bg-blue-700 hover:text-white">
-                <Bell size={22} />
-              </button>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={handleNotificationClick}
+                  className="relative rounded-full bg-white/80 p-3 text-blue-950 shadow-sm transition hover:bg-blue-700 hover:text-white"
+                >
+                  <Bell size={22} />
+
+                  {unreadCount > 0 && (
+                    <span className="absolute -right-1 -top-1 flex h-6 min-w-6 items-center justify-center rounded-full bg-red-600 px-1.5 text-xs font-black text-white shadow-lg">
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {showNotifications && (
+                  <div className="absolute right-0 top-14 z-50 w-[340px] overflow-hidden rounded-2xl border border-white/30 bg-white shadow-2xl shadow-blue-950/30">
+                    <div className="flex items-center justify-between border-b border-slate-200 bg-gradient-to-r from-blue-950 via-sky-700 to-blue-900 px-4 py-3 text-white">
+                      <div>
+                        <h3 className="font-black">Notifications</h3>
+                        <p className="text-xs text-sky-100">
+                          {unreadCount} unread
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setShowNotifications(false)}
+                        className="rounded-full bg-white/10 p-1 transition hover:bg-white/20"
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+
+                    <div className="max-h-[420px] overflow-y-auto">
+                      {notifications.length === 0 ? (
+                        <div className="px-4 py-8 text-center text-sm font-semibold text-slate-500">
+                          No notifications yet
+                        </div>
+                      ) : (
+                        notifications.map((notification) => (
+                          <button
+                            key={notification.id}
+                            type="button"
+                            onClick={() => handleMarkAsRead(notification.id)}
+                            className={`block w-full border-b border-slate-100 px-4 py-3 text-left transition hover:bg-sky-50 ${
+                              notification.isRead
+                                ? "bg-white"
+                                : "bg-blue-50"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="font-black text-blue-950">
+                                  {notification.title}
+                                </p>
+
+                                <p className="mt-1 text-sm leading-5 text-slate-600">
+                                  {notification.message}
+                                </p>
+
+                                <p className="mt-2 text-xs font-semibold text-slate-400">
+                                  {notification.createdAt
+                                    ? new Date(
+                                        notification.createdAt
+                                      ).toLocaleString()
+                                    : ""}
+                                </p>
+                              </div>
+
+                              {!notification.isRead && (
+                                <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-red-600" />
+                              )}
+                            </div>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <div className="flex min-w-0 items-center gap-3 rounded-2xl bg-white/80 px-3 py-2 shadow-sm backdrop-blur">
                 <div className="min-w-0 text-right">
@@ -189,10 +320,7 @@ function DashboardLayout({
           </div>
         </header>
 
-        {/* CONTENT */}
-        <section className="px-3 py-6 sm:px-6 lg:px-8">
-          {children}
-        </section>
+        <section className="px-3 py-6 sm:px-6 lg:px-8">{children}</section>
       </main>
     </div>
   );
