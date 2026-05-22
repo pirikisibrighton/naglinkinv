@@ -9,6 +9,8 @@ import {
   Phone,
   Clock3,
   AlertCircle,
+  Route,
+  Navigation,
 } from "lucide-react";
 
 function TrackOrder() {
@@ -22,20 +24,32 @@ function TrackOrder() {
 
   const statusOrder = [
     "approved",
+    "en_route_to_loading",
     "loading",
+    "loading_approved",
     "in_transit",
+    "arrived_at_destination",
+    "waiting_to_offload",
     "offloading",
+    "offloading_approved",
     "delivered",
+    "customer_confirmed",
   ];
 
   const getStatusLabel = (status) => {
     const labels = {
       pending: "Pending Approval",
       approved: "Order Approved",
+      en_route_to_loading: "En Route To Loading",
       loading: "Loading",
+      loading_approved: "Loading Approved",
       in_transit: "In Transit",
+      arrived_at_destination: "Arrived At Destination",
+      waiting_to_offload: "Waiting To Offload",
       offloading: "Offloading",
+      offloading_approved: "Offloading Approved",
       delivered: "Delivered",
+      customer_confirmed: "Customer Confirmed",
       cancelled: "Cancelled",
     };
 
@@ -47,11 +61,16 @@ function TrackOrder() {
 
     return [
       { title: "Order Approved", status: currentIndex >= 0 },
-      { title: "Truck Assigned", status: currentIndex >= 0 },
-      { title: "Loading", status: currentIndex >= 1 },
-      { title: "In Transit", status: currentIndex >= 2 },
-      { title: "Offloading", status: currentIndex >= 3 },
-      { title: "Delivered", status: status === "delivered" },
+      { title: "En Route To Loading", status: currentIndex >= 1 },
+      { title: "Loading", status: currentIndex >= 2 },
+      { title: "In Transit", status: currentIndex >= 4 },
+      { title: "Arrived At Destination", status: currentIndex >= 5 },
+      { title: "Waiting To Offload", status: currentIndex >= 6 },
+      { title: "Offloading", status: currentIndex >= 7 },
+      {
+        title: "Delivered",
+        status: ["delivered", "customer_confirmed"].includes(status),
+      },
     ];
   };
 
@@ -71,7 +90,6 @@ function TrackOrder() {
       setTrackingData(null);
 
       const response = await fetch(`${API_BASE_URL}/orders/track/${orderNumber}`);
-
       const data = await response.json();
 
       if (!response.ok) {
@@ -133,7 +151,10 @@ function TrackOrder() {
               Enter Order Number
             </h2>
 
-            <form onSubmit={handleTrackOrder} className="flex flex-col gap-4 md:flex-row">
+            <form
+              onSubmit={handleTrackOrder}
+              className="flex flex-col gap-4 md:flex-row"
+            >
               <input
                 type="text"
                 placeholder="e.g 1 or 25"
@@ -163,135 +184,259 @@ function TrackOrder() {
       </section>
 
       {trackingData && (
-        <section className="px-3 pt-10 sm:px-6 md:px-10 lg:px-20">
-          <div className="grid gap-6 lg:grid-cols-3 lg:gap-8">
-            <motion.div
-              initial={{ opacity: 0, x: -30 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              className="rounded-[24px] bg-gradient-to-r from-blue-950 via-sky-500 to-blue-800 p-[5px] shadow-2xl sm:rounded-[35px] sm:p-[6px] lg:col-span-2"
-            >
-              <div className="h-full rounded-[20px] bg-gradient-to-r from-slate-100 via-sky-100 to-white p-4 sm:rounded-[28px] sm:p-7">
-                <div className="flex items-start gap-3 sm:items-center">
-                  <PackageCheck
-                    className="mt-1 shrink-0 text-blue-950 sm:mt-0"
-                    size={34}
-                  />
+        <>
+          <section className="px-3 pt-10 sm:px-6 md:px-10 lg:px-20">
+            <div className="grid gap-6 lg:grid-cols-3 lg:gap-8">
+              <motion.div
+                initial={{ opacity: 0, x: -30 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                className="rounded-[24px] bg-gradient-to-r from-blue-950 via-sky-500 to-blue-800 p-[5px] shadow-2xl sm:rounded-[35px] sm:p-[6px] lg:col-span-2"
+              >
+                <div className="h-full rounded-[20px] bg-gradient-to-r from-slate-100 via-sky-100 to-white p-4 sm:rounded-[28px] sm:p-7">
+                  <div className="flex items-start gap-3 sm:items-center">
+                    <PackageCheck
+                      className="mt-1 shrink-0 text-blue-950 sm:mt-0"
+                      size={34}
+                    />
 
-                  <div>
-                    <h2 className="break-all text-2xl font-bold text-blue-950 sm:text-3xl">
-                      Order #{trackingData.id}
-                    </h2>
+                    <div>
+                      <h2 className="break-all text-2xl font-bold text-blue-950 sm:text-3xl">
+                        Order #{trackingData.id}
+                      </h2>
 
-                    <p className="text-sm text-slate-700 sm:text-base">
-                      Current Status:{" "}
-                      <span className="font-semibold text-green-700">
-                        {getStatusLabel(trackingData.status)}
-                      </span>
-                    </p>
+                      <p className="text-sm text-slate-700 sm:text-base">
+                        Current Status:{" "}
+                        <span className="font-semibold text-green-700">
+                          {getStatusLabel(trackingData.status)}
+                        </span>
+                      </p>
+                    </div>
                   </div>
-                </div>
 
-                <div className="mt-8 space-y-7 sm:mt-10 sm:space-y-8">
-                  {trackingSteps.map((step, index) => (
-                    <div key={index} className="flex gap-4 sm:gap-5">
-                      <div className="flex flex-col items-center">
-                        <div
-                          className={`h-5 w-5 shrink-0 rounded-full sm:h-6 sm:w-6 ${
-                            step.status
-                              ? "bg-gradient-to-r from-blue-950 via-sky-600 to-blue-800"
-                              : "bg-slate-300"
-                          }`}
-                        />
-
-                        {index !== trackingSteps.length - 1 && (
+                  <div className="mt-8 space-y-7 sm:mt-10 sm:space-y-8">
+                    {trackingSteps.map((step, index) => (
+                      <div key={index} className="flex gap-4 sm:gap-5">
+                        <div className="flex flex-col items-center">
                           <div
-                            className={`w-[3px] flex-1 ${
-                              step.status ? "bg-blue-700" : "bg-slate-300"
+                            className={`h-5 w-5 shrink-0 rounded-full sm:h-6 sm:w-6 ${
+                              step.status
+                                ? "bg-gradient-to-r from-blue-950 via-sky-600 to-blue-800"
+                                : "bg-slate-300"
                             }`}
                           />
-                        )}
-                      </div>
 
-                      <div className="-mt-1 min-w-0">
-                        <h3 className="text-lg font-semibold text-blue-950 sm:text-xl">
-                          {step.title}
-                        </h3>
+                          {index !== trackingSteps.length - 1 && (
+                            <div
+                              className={`w-[3px] flex-1 ${
+                                step.status ? "bg-blue-700" : "bg-slate-300"
+                              }`}
+                            />
+                          )}
+                        </div>
 
-                        <p className="mt-1 text-sm text-slate-700 sm:text-base">
-                          {step.status
-                            ? "Completed successfully"
-                            : "Pending update"}
-                        </p>
+                        <div className="-mt-1 min-w-0">
+                          <h3 className="text-lg font-semibold text-blue-950 sm:text-xl">
+                            {step.title}
+                          </h3>
+
+                          <p className="mt-1 text-sm text-slate-700 sm:text-base">
+                            {step.status
+                              ? "Completed successfully"
+                              : "Pending update"}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            </motion.div>
+              </motion.div>
 
-            <motion.div
-              initial={{ opacity: 0, x: 30 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              className="rounded-[24px] bg-gradient-to-r from-purple-900 via-blue-800 to-sky-500 p-[5px] shadow-2xl sm:rounded-[35px] sm:p-[6px]"
-            >
-              <div className="h-full rounded-[20px] bg-gradient-to-r from-slate-100 via-sky-100 to-white p-4 sm:rounded-[28px] sm:p-7">
-                <h2 className="mb-7 text-2xl font-bold text-blue-950 sm:mb-8 sm:text-3xl">
-                  Delivery Info
-                </h2>
+              <motion.div
+                initial={{ opacity: 0, x: 30 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                className="rounded-[24px] bg-gradient-to-r from-purple-900 via-blue-800 to-sky-500 p-[5px] shadow-2xl sm:rounded-[35px] sm:p-[6px]"
+              >
+                <div className="h-full rounded-[20px] bg-gradient-to-r from-slate-100 via-sky-100 to-white p-4 sm:rounded-[28px] sm:p-7">
+                  <h2 className="mb-7 text-2xl font-bold text-blue-950 sm:mb-8 sm:text-3xl">
+                    Delivery Info
+                  </h2>
 
-                <div className="space-y-6 sm:space-y-7">
-                  {[
-                    [
-                      "Truck",
-                      trackingData.truck
-                        ? `${trackingData.truck.truckName} - ${trackingData.truck.licensePlate}`
-                        : "Not assigned yet",
-                      Truck,
-                    ],
-                    [
-                      "Driver",
-                      trackingData.driver?.username || "Not assigned yet",
-                      User,
-                    ],
-                    [
-                      "Driver Contact",
-                      trackingData.driver?.phone || "Not available",
-                      Phone,
-                    ],
-                    [
-                      "Destination",
-                      trackingData.deliveryLocation || "Not available",
-                      MapPin,
-                    ],
-                    [
-                      "Estimated Arrival",
-                      trackingData.forecastedArrival
-                        ? new Date(trackingData.forecastedArrival).toLocaleString()
-                        : "Not available",
-                      Clock3,
-                    ],
-                  ].map(([title, value, Icon]) => (
-                    <div key={title} className="flex items-start gap-4">
-                      <Icon className="mt-1 shrink-0 text-blue-950" />
+                  <div className="space-y-6 sm:space-y-7">
+                    {[
+                      [
+                        "Truck",
+                        trackingData.truck
+                          ? `${trackingData.truck.truckName} - ${trackingData.truck.licensePlate}`
+                          : "Not assigned yet",
+                        Truck,
+                      ],
+                      [
+                        "Driver",
+                        trackingData.driver?.username || "Not assigned yet",
+                        User,
+                      ],
+                      [
+                        "Driver Contact",
+                        trackingData.driver?.phone || "Not available",
+                        Phone,
+                      ],
+                      [
+                        "Destination",
+                        trackingData.deliveryLocation || "Not available",
+                        MapPin,
+                      ],
+                      [
+                        "Estimated Arrival",
+                        trackingData.forecastedArrival
+                          ? new Date(
+                              trackingData.forecastedArrival
+                            ).toLocaleString()
+                          : "Not available",
+                        Clock3,
+                      ],
+                    ].map(([title, value, Icon]) => (
+                      <div key={title} className="flex items-start gap-4">
+                        <Icon className="mt-1 shrink-0 text-blue-950" />
 
-                      <div className="min-w-0">
-                        <h3 className="text-base font-semibold text-blue-950 sm:text-lg">
-                          {title}
-                        </h3>
+                        <div className="min-w-0">
+                          <h3 className="text-base font-semibold text-blue-950 sm:text-lg">
+                            {title}
+                          </h3>
 
-                        <p className="break-words text-sm text-slate-700 sm:text-base">
-                          {value}
-                        </p>
+                          <p className="break-words text-sm text-slate-700 sm:text-base">
+                            {value}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            </motion.div>
-          </div>
-        </section>
+              </motion.div>
+            </div>
+          </section>
+
+          <section className="px-3 pt-10 sm:px-6 md:px-10 lg:px-20">
+            <div className="grid gap-6 lg:grid-cols-2">
+              <motion.div
+                initial={{ opacity: 0, y: 35 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className="rounded-[24px] bg-gradient-to-r from-blue-950 via-sky-500 to-blue-800 p-[5px] shadow-2xl sm:rounded-[35px] sm:p-[6px]"
+              >
+                <div className="h-full rounded-[20px] bg-gradient-to-r from-slate-100 via-sky-100 to-white p-5 sm:rounded-[28px] sm:p-7">
+                  <div className="mb-6 flex items-center gap-3">
+                    <Route className="text-blue-950" size={30} />
+
+                    <h2 className="text-2xl font-bold text-blue-950 sm:text-3xl">
+                      Journey Updates
+                    </h2>
+                  </div>
+
+                  <div className="space-y-4">
+                    {trackingData.statusUpdates?.length > 0 ? (
+                      trackingData.statusUpdates.map((update) => (
+                        <div
+                          key={update.id}
+                          className="rounded-2xl border border-sky-200 bg-white/80 p-4 shadow-sm"
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div>
+                              <h3 className="text-lg font-bold text-blue-950">
+                                {update.title}
+                              </h3>
+
+                              {update.locationName && (
+                                <p className="mt-1 text-sm font-semibold text-blue-700">
+                                  {update.locationName}
+                                </p>
+                              )}
+
+                              <p className="mt-1 text-sm text-slate-700">
+                                {update.note || "No additional notes"}
+                              </p>
+
+                              <p className="mt-2 text-xs font-medium text-slate-500">
+                                Updated by:{" "}
+                                {update.updatedByUser?.username || "System"}
+                              </p>
+                            </div>
+
+                            <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">
+                              {update.status
+                                ?.replaceAll("_", " ")
+                                .toUpperCase()}
+                            </span>
+                          </div>
+
+                          <div className="mt-3 text-xs text-slate-500">
+                            {new Date(update.createdAt).toLocaleString()}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-center text-slate-500">
+                        No journey updates available yet
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, y: 35 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className="rounded-[24px] bg-gradient-to-r from-purple-900 via-blue-800 to-sky-500 p-[5px] shadow-2xl sm:rounded-[35px] sm:p-[6px]"
+              >
+                <div className="h-full rounded-[20px] bg-gradient-to-r from-slate-100 via-sky-100 to-white p-5 sm:rounded-[28px] sm:p-7">
+                  <div className="mb-6 flex items-center gap-3">
+                    <Navigation className="text-blue-950" size={30} />
+
+                    <h2 className="text-2xl font-bold text-blue-950 sm:text-3xl">
+                      Location Updates
+                    </h2>
+                  </div>
+
+                  <div className="space-y-4">
+                    {trackingData.locations?.length > 0 ? (
+                      trackingData.locations.map((location) => (
+                        <div
+                          key={location.id}
+                          className="rounded-2xl border border-sky-200 bg-white/80 p-4 shadow-sm"
+                        >
+                          <div className="flex items-start gap-3">
+                            <MapPin
+                              className="mt-1 shrink-0 text-blue-950"
+                              size={20}
+                            />
+
+                            <div className="min-w-0">
+                              <h3 className="break-words text-lg font-bold text-blue-950">
+                                {location.locationName}
+                              </h3>
+
+                              <p className="mt-2 text-xs text-slate-500">
+                                {new Date(
+                                  location.createdAt
+                                ).toLocaleString()}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-center text-slate-500">
+                        No location updates available yet
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          </section>
+        </>
       )}
     </main>
   );
