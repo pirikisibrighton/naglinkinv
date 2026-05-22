@@ -18,6 +18,7 @@ const orderLocationRoutes = require("./routes/orderLocationRoutes");
 
 const multiTruckRoutes = require('./routes/multiTruckRoutes');
 const notificationRoutes = require("./routes/notificationRoutes");
+const orderStatusUpdateRoutes = require("./routes/orderStatusUpdateRoutes");
 
 // Load environment variables
 dotenv.config();
@@ -45,6 +46,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/multi-truck', multiTruckRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/order-status-updates", orderStatusUpdateRoutes);
 
 // Test route
 app.get('/', (req, res) => {

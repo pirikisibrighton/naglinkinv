@@ -4,12 +4,33 @@ const Order = db.Order;
 const User = db.User;
 const Truck = db.Truck;
 const OrderLocation = db.OrderLocation;
+const OrderStatusUpdate = db.OrderStatusUpdate;
 const Expense = db.Expense;
 
 const PDFDocument = require("pdfkit");
 const createNotification = require("../utils/createNotification");
 
-// Customer creates a new order
+const statusUpdateInclude = {
+  model: OrderStatusUpdate,
+  as: "statusUpdates",
+  include: [
+    {
+      model: User,
+      as: "updatedByUser",
+      attributes: ["username", "role"],
+    },
+  ],
+  separate: true,
+  order: [["createdAt", "DESC"]],
+};
+
+const locationInclude = {
+  model: OrderLocation,
+  as: "locations",
+  separate: true,
+  order: [["createdAt", "DESC"]],
+};
+
 const createOrder = async (req, res) => {
   try {
     const { pickupLocation, deliveryLocation, goodsDescription, weight } =
@@ -47,7 +68,6 @@ const createOrder = async (req, res) => {
   }
 };
 
-// Get customer's own orders
 const getMyOrders = async (req, res) => {
   try {
     const orders = await Order.findAll({
@@ -63,12 +83,8 @@ const getMyOrders = async (req, res) => {
           as: "truck",
           attributes: ["truckName", "licensePlate", "imageUrl"],
         },
-        {
-          model: OrderLocation,
-          as: "locations",
-          separate: true,
-          order: [["createdAt", "DESC"]],
-        },
+        locationInclude,
+        statusUpdateInclude,
       ],
       order: [["createdAt", "DESC"]],
     });
@@ -82,7 +98,6 @@ const getMyOrders = async (req, res) => {
   }
 };
 
-// Get single order by ID
 const getOrderById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -103,12 +118,8 @@ const getOrderById = async (req, res) => {
           model: Truck,
           as: "truck",
         },
-        {
-          model: OrderLocation,
-          as: "locations",
-          separate: true,
-          order: [["createdAt", "DESC"]],
-        },
+        locationInclude,
+        statusUpdateInclude,
       ],
     });
 
@@ -117,6 +128,10 @@ const getOrderById = async (req, res) => {
     }
 
     if (req.user.role === "customer" && order.customerId !== req.userId) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    if (req.user.role === "driver" && order.driverId !== req.userId) {
       return res.status(403).json({ message: "Access denied" });
     }
 
@@ -129,7 +144,6 @@ const getOrderById = async (req, res) => {
   }
 };
 
-// Admin approves order and assigns driver & truck
 const approveOrder = async (req, res) => {
   try {
     const { id } = req.params;
@@ -186,6 +200,14 @@ const approveOrder = async (req, res) => {
       status: "approved",
     });
 
+    await OrderStatusUpdate.create({
+      orderId: order.id,
+      updatedBy: req.userId,
+      status: "approved",
+      title: "Order Approved",
+      note: `Order approved and assigned to ${driver.username}.`,
+    });
+
     await createNotification({
       userId: order.customerId,
       roleTarget: "customer",
@@ -217,7 +239,6 @@ const approveOrder = async (req, res) => {
   }
 };
 
-// Admin gets all orders
 const getAllOrders = async (req, res) => {
   try {
     const orders = await Order.findAll({
@@ -236,12 +257,8 @@ const getAllOrders = async (req, res) => {
           model: Truck,
           as: "truck",
         },
-        {
-          model: OrderLocation,
-          as: "locations",
-          separate: true,
-          order: [["createdAt", "DESC"]],
-        },
+        locationInclude,
+        statusUpdateInclude,
       ],
       order: [["createdAt", "DESC"]],
     });
@@ -255,11 +272,10 @@ const getAllOrders = async (req, res) => {
   }
 };
 
-// Driver updates order status
 const updateOrderStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, note } = req.body;
 
     const order = await Order.findByPk(id);
 
@@ -271,7 +287,23 @@ const updateOrderStatus = async (req, res) => {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const validStatuses = ["in_transit", "delivered", "cancelled"];
+    if (req.user.role === "customer" && order.customerId !== req.userId) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const validStatuses = [
+      "en_route_to_loading",
+      "loading",
+      "loading_approved",
+      "in_transit",
+      "arrived_at_destination",
+      "waiting_to_offload",
+      "offloading",
+      "offloading_approved",
+      "delivered",
+      "customer_confirmed",
+      "cancelled",
+    ];
 
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ message: "Invalid status" });
@@ -279,34 +311,71 @@ const updateOrderStatus = async (req, res) => {
 
     await order.update({ status });
 
-    await createNotification({
-      userId: order.customerId,
-      roleTarget: "customer",
+    await OrderStatusUpdate.create({
       orderId: order.id,
-      title: "Order Status Updated",
-      message: `Order #${order.id} status changed to ${status.replace(
-        "_",
-        " "
-      )}.`,
-      type: "order_status_update",
+      updatedBy: req.userId,
+      status,
+      title: status
+        .replaceAll("_", " ")
+        .replace(/\b\w/g, (letter) => letter.toUpperCase()),
+      note: note || null,
     });
 
-    await createNotification({
-      roleTarget: "admin",
-      orderId: order.id,
-      title: "Order Status Updated",
-      message: `Driver updated order #${order.id} to ${status.replace(
-        "_",
-        " "
-      )}.`,
-      type: "order_status_update",
-    });
+    if (order.customerId && req.user.role !== "customer") {
+      await createNotification({
+        userId: order.customerId,
+        roleTarget: "customer",
+        orderId: order.id,
+        title: "Order Status Updated",
+        message: `Order #${order.id} status changed to ${status.replaceAll(
+          "_",
+          " "
+        )}.`,
+        type: "order_status_update",
+      });
+    }
 
-    if (status === "delivered" && order.truckId) {
-      await Truck.update(
-        { isAvailable: true },
-        { where: { id: order.truckId } }
-      );
+    if (req.user.role !== "admin") {
+      await createNotification({
+        roleTarget: "admin",
+        orderId: order.id,
+        title: "Order Status Updated",
+        message: `Order #${order.id} was updated to ${status.replaceAll(
+          "_",
+          " "
+        )}.`,
+        type: "order_status_update",
+      });
+    }
+
+    if (order.driverId && req.user.role !== "driver") {
+      await createNotification({
+        userId: order.driverId,
+        roleTarget: "driver",
+        orderId: order.id,
+        title: "Order Status Updated",
+        message: `Order #${order.id} was updated to ${status.replaceAll(
+          "_",
+          " "
+        )}.`,
+        type: "order_status_update",
+      });
+    }
+
+    if (["delivered", "customer_confirmed"].includes(status)) {
+      if (order.truckId) {
+        await Truck.update(
+          { isAvailable: true },
+          { where: { id: order.truckId } }
+        );
+      }
+
+      if (order.driverId) {
+        await User.update(
+          { isAvailable: true },
+          { where: { id: order.driverId } }
+        );
+      }
     }
 
     res.json({
@@ -321,7 +390,6 @@ const updateOrderStatus = async (req, res) => {
   }
 };
 
-// Track order publicly
 const trackOrder = async (req, res) => {
   try {
     const { trackingNumber } = req.params;
@@ -347,12 +415,8 @@ const trackOrder = async (req, res) => {
           as: "driver",
           attributes: ["username", "email", "phone"],
         },
-        {
-          model: OrderLocation,
-          as: "locations",
-          separate: true,
-          order: [["createdAt", "DESC"]],
-        },
+        locationInclude,
+        statusUpdateInclude,
       ],
     });
 

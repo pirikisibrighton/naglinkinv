@@ -17,8 +17,9 @@ import {
   Scale,
   Truck,
   Upload,
-LocateFixed,
+  LocateFixed,
   User,
+  Route,
 } from "lucide-react";
 
 const DriverDashboard = () => {
@@ -31,6 +32,13 @@ const DriverDashboard = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [modalType, setModalType] = useState(null);
 
+  const [journeyData, setJourneyData] = useState({
+    status: "",
+    note: "",
+    locationName: "",
+    proofImage: null,
+  });
+
   const [loadingData, setLoadingData] = useState({
     packageNumber: "",
     weight: "",
@@ -42,6 +50,29 @@ const DriverDashboard = () => {
     offloadingDocument: null,
   });
 
+  const journeyOptions = [
+    { value: "en_route_to_loading", label: "En Route To Loading" },
+    { value: "arrived_at_loading_point", label: "Arrived At Loading Point" },
+    { value: "at_tollgate", label: "At Tollgate" },
+    { value: "police_checkpoint", label: "Police Checkpoint" },
+    { value: "at_border", label: "At Border" },
+    { value: "customs_clearance_started", label: "Customs Clearance Started" },
+    { value: "customs_clearance_completed", label: "Customs Clearance Completed" },
+    { value: "vehicle_inspection", label: "Vehicle Inspection" },
+    { value: "fuel_stop", label: "Fuel Stop" },
+    { value: "rest_stop", label: "Rest Stop" },
+    { value: "delayed", label: "Delayed" },
+    { value: "breakdown", label: "Breakdown" },
+    { value: "road_traffic_delay", label: "Road Traffic Delay" },
+    { value: "departed_loading_point", label: "Departed Loading Point" },
+    { value: "in_transit", label: "In Transit" },
+    { value: "arrived_at_destination", label: "Arrived At Destination" },
+    { value: "arrived_at_delivery_point", label: "Arrived At Delivery Point" },
+    { value: "waiting_to_offload", label: "Waiting To Offload" },
+    { value: "offloading_started", label: "Offloading Started" },
+    { value: "offloading_completed", label: "Offloading Completed" },
+  ];
+
   const fetchOrders = async () => {
     try {
       const response = await API.get("/driver/my-orders");
@@ -52,61 +83,104 @@ const DriverDashboard = () => {
     }
   };
 
-  const handleSendCurrentLocation = (orderId) => {
-  if (!navigator.geolocation) {
-    toast.error("Location is not supported on this device.");
-    return;
-  }
-
-  toast.loading("Getting current location...", {
-    id: "location-update",
-  });
-
-  navigator.geolocation.getCurrentPosition(
-    async (position) => {
-      try {
-        const { latitude, longitude, accuracy } = position.coords;
-
-await API.post(`/order-locations/${orderId}`, {
-  latitude,
-  longitude,
-  accuracy,
-});
-
-        toast.success("Location updated successfully!", {
-          id: "location-update",
-        });
-
-        fetchOrders();
-      } catch (error) {
-        console.error("Location update error:", error);
-
-        toast.error(
-          error.response?.data?.message || "Error updating location",
-          {
-            id: "location-update",
-          }
-        );
-      }
-    },
-    (error) => {
-      console.error("Location permission error:", error);
-
-      toast.error("Please allow location access to update your location.", {
-        id: "location-update",
-      });
-    },
-    {
-      enableHighAccuracy: true,
-      timeout: 15000,
-      maximumAge: 0,
-    }
-  );
-};
-
   useEffect(() => {
     fetchOrders();
   }, []);
+
+  const handleSendCurrentLocation = (orderId) => {
+    if (!navigator.geolocation) {
+      toast.error("Location is not supported on this device.");
+      return;
+    }
+
+    toast.loading("Getting current location...", {
+      id: "location-update",
+    });
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude, accuracy } = position.coords;
+
+          await API.post(`/order-locations/${orderId}`, {
+            latitude,
+            longitude,
+            accuracy,
+          });
+
+          toast.success("Location updated successfully!", {
+            id: "location-update",
+          });
+
+          fetchOrders();
+        } catch (error) {
+          console.error("Location update error:", error);
+
+          toast.error(
+            error.response?.data?.message || "Error updating location",
+            {
+              id: "location-update",
+            }
+          );
+        }
+      },
+      (error) => {
+        console.error("Location permission error:", error);
+
+        toast.error("Please allow location access to update your location.", {
+          id: "location-update",
+        });
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0,
+      }
+    );
+  };
+
+  const handleSubmitJourneyUpdate = async (orderId) => {
+    try {
+      if (!journeyData.status) {
+        toast.error("Please select a journey update");
+        return;
+      }
+
+      const selectedOption = journeyOptions.find(
+        (option) => option.value === journeyData.status
+      );
+
+      await API.post(`/order-status-updates/${orderId}`, {
+        status: journeyData.status,
+        title:
+          selectedOption?.label ||
+          journeyData.status
+            .replaceAll("_", " ")
+            .replace(/\b\w/g, (letter) => letter.toUpperCase()),
+        note: journeyData.note,
+        locationName: journeyData.locationName,
+      });
+
+      toast.success("Journey update submitted successfully!");
+
+      setSelectedOrder(null);
+      setModalType(null);
+
+      setJourneyData({
+        status: "",
+        note: "",
+        locationName: "",
+        proofImage: null,
+      });
+
+      fetchOrders();
+    } catch (error) {
+      console.error("Journey update error:", error);
+      toast.error(
+        error.response?.data?.message || "Error submitting journey update"
+      );
+    }
+  };
 
   const handleStartLoading = async (orderId) => {
     try {
@@ -122,6 +196,11 @@ await API.post(`/order-locations/${orderId}`, {
 
       await API.post(`/driver/${orderId}/start-loading`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      await API.post(`/order-status-updates/${orderId}`, {
+        status: "loading",
+        note: loadingData.loadingNotes || "Loading started. Waiting for admin approval.",
       });
 
       toast.success("Loading details submitted! Waiting for admin approval.");
@@ -157,6 +236,11 @@ await API.post(`/order-locations/${orderId}`, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
+      await API.post(`/order-status-updates/${orderId}`, {
+        status: "offloading",
+        note: "Offloading document uploaded. Waiting for admin approval.",
+      });
+
       toast.success("Offloading document uploaded! Waiting for admin approval.");
 
       setSelectedOrder(null);
@@ -173,7 +257,11 @@ await API.post(`/order-locations/${orderId}`, {
   const handleCompleteTrip = async (orderId) => {
     if (window.confirm("Are you sure you want to mark this trip as complete?")) {
       try {
-        await API.post(`/driver/${orderId}/complete-trip`);
+        await API.post(`/order-status-updates/${orderId}`, {
+          status: "delivered",
+          note: "Driver marked order as delivered.",
+        });
+
         toast.success("Trip completed successfully!");
         fetchOrders();
       } catch (err) {
@@ -187,10 +275,17 @@ await API.post(`/order-locations/${orderId}`, {
     const colors = {
       pending: "bg-yellow-100 text-yellow-700",
       approved: "bg-blue-100 text-blue-700",
+      en_route_to_loading: "bg-cyan-100 text-cyan-700",
       loading: "bg-purple-100 text-purple-700",
+      loading_approved: "bg-purple-100 text-purple-700",
       in_transit: "bg-indigo-100 text-indigo-700",
+      arrived_at_destination: "bg-sky-100 text-sky-700",
+      waiting_to_offload: "bg-orange-100 text-orange-700",
       offloading: "bg-orange-100 text-orange-700",
+      offloading_approved: "bg-emerald-100 text-emerald-700",
       delivered: "bg-emerald-100 text-emerald-700",
+      customer_confirmed: "bg-green-100 text-green-700",
+      cancelled: "bg-red-100 text-red-700",
     };
 
     return colors[status] || "bg-blue-100 text-blue-700";
@@ -200,10 +295,17 @@ await API.post(`/order-locations/${orderId}`, {
     const labels = {
       pending: "Pending",
       approved: "Approved",
+      en_route_to_loading: "En Route To Loading",
       loading: "Loading",
+      loading_approved: "Loading Approved",
       in_transit: "In Transit",
+      arrived_at_destination: "Arrived At Destination",
+      waiting_to_offload: "Waiting To Offload",
       offloading: "Offloading",
+      offloading_approved: "Offloading Approved",
       delivered: "Delivered",
+      customer_confirmed: "Customer Confirmed",
+      cancelled: "Cancelled",
     };
 
     return labels[status] || "Pending";
@@ -231,13 +333,22 @@ await API.post(`/order-locations/${orderId}`, {
   const filteredOrders = getFilteredOrders();
 
   const totalOrders = orders.length;
-
-  const deliveredOrders = orders.filter(
-    (order) => order.status === "delivered"
+  const deliveredOrders = orders.filter((order) =>
+    ["delivered", "customer_confirmed"].includes(order.status)
   ).length;
 
   const upcomingOrders = orders.filter((order) =>
-    ["approved", "loading", "in_transit", "offloading"].includes(order.status)
+    [
+      "approved",
+      "en_route_to_loading",
+      "loading",
+      "loading_approved",
+      "in_transit",
+      "arrived_at_destination",
+      "waiting_to_offload",
+      "offloading",
+      "offloading_approved",
+    ].includes(order.status)
   ).length;
 
   const latestOrders = [...filteredOrders]
@@ -300,7 +411,7 @@ await API.post(`/order-locations/${orderId}`, {
               textColor: "text-emerald-300",
             },
             {
-              title: "Upcoming Orders",
+              title: "Active Orders",
               value: upcomingOrders,
               subtitle: "Active or pending trips",
               icon: CalendarClock,
@@ -341,204 +452,132 @@ await API.post(`/order-locations/${orderId}`, {
           })}
         </div>
 
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-          <div className="rounded-md border border-white/20 bg-gradient-to-br from-blue-950 via-sky-800 to-blue-900 p-6 text-white shadow-xl transition duration-200 hover:border-white/40">
-            <h3 className="text-xl font-black text-white">
-              Order Status Overview
-            </h3>
+        <div className="rounded-md border border-white/20 bg-gradient-to-br from-blue-950 via-sky-800 to-blue-900 p-6 text-white shadow-xl">
+          <div className="mb-5 flex items-center justify-between gap-4">
+            <div>
+              <h3 className="text-xl font-black text-white">Recent Orders</h3>
+              <p className="mt-1 text-sm font-medium text-sky-100">
+                Latest 5 assigned orders
+              </p>
+            </div>
 
-            <p className="mt-1 text-sm font-medium text-sky-100">
-              Your order distribution
-            </p>
-
-            <div className="mt-8 flex flex-col items-center">
-              {(() => {
-                const pending = orders.filter(
-                  (o) => o.status === "pending"
-                ).length;
-
-                const loading = orders.filter(
-                  (o) => o.status === "loading"
-                ).length;
-
-                const transit = orders.filter(
-                  (o) => o.status === "in_transit"
-                ).length;
-
-                const offloading = orders.filter(
-                  (o) => o.status === "offloading"
-                ).length;
-
-                const completed = orders.filter(
-                  (o) => o.status === "delivered"
-                ).length;
-
-                const total =
-                  pending + loading + transit + offloading + completed || 1;
-
-                const p1 = (pending / total) * 100;
-                const p2 = p1 + (loading / total) * 100;
-                const p3 = p2 + (transit / total) * 100;
-                const p4 = p3 + (offloading / total) * 100;
-
-                return (
-                  <div
-                    className="relative flex h-52 w-52 items-center justify-center rounded-full sm:h-56 sm:w-56"
-                    style={{
-                      background: `conic-gradient(
-                        #facc15 0% ${p1}%,
-                        #a855f7 ${p1}% ${p2}%,
-                        #38bdf8 ${p2}% ${p3}%,
-                        #f97316 ${p3}% ${p4}%,
-                        #22c55e ${p4}% 100%
-                      )`,
-                    }}
-                  >
-                    <div className="flex h-32 w-32 flex-col items-center justify-center rounded-full border border-white/20 bg-blue-950 shadow-inner">
-                      <p className="text-4xl font-black text-white">{total}</p>
-                      <p className="text-xs font-bold uppercase text-sky-200">
-                        Total
-                      </p>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              <div className="mt-8 grid grid-cols-2 gap-4 text-sm font-semibold text-sky-100">
-                <div className="flex items-center gap-2">
-                  <span className="h-3 w-3 rounded-full bg-yellow-400" />
-                  Pending
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="h-3 w-3 rounded-full bg-purple-500" />
-                  Loading
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="h-3 w-3 rounded-full bg-sky-400" />
-                  In Transit
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="h-3 w-3 rounded-full bg-orange-500" />
-                  Offloading
-                </div>
-
-                <div className="col-span-2 flex items-center justify-center gap-2">
-                  <span className="h-3 w-3 rounded-full bg-green-500" />
-                  Delivered
-                </div>
-              </div>
+            <div className="rounded-xl bg-blue-500/10 p-3">
+              <Truck className="text-blue-300" size={24} />
             </div>
           </div>
 
-          <div className="rounded-md border border-white/20 bg-gradient-to-br from-blue-950 via-sky-800 to-blue-900 p-6 text-white shadow-xl transition duration-200 hover:border-white/40 xl:col-span-2">
-            <div className="mb-5 flex items-center justify-between gap-4">
-              <div>
-                <h3 className="text-xl font-black text-white">Recent Orders</h3>
+          <div className="overflow-x-auto rounded-md border border-white/20">
+            <table className="w-full min-w-[1000px] text-left text-sm">
+              <thead className="bg-white/10 text-sky-100">
+                <tr>
+                  <th className="px-4 py-4">ORDER</th>
+                  <th className="px-4 py-4">CUSTOMER</th>
+                  <th className="px-4 py-4">FROM</th>
+                  <th className="px-4 py-4">TO</th>
+                  <th className="px-4 py-4">STATUS</th>
+                  <th className="px-4 py-4">DATE</th>
+                  <th className="px-4 py-4">LOCATION</th>
+                  <th className="px-4 py-4">JOURNEY</th>
+                </tr>
+              </thead>
 
-                <p className="mt-1 text-sm font-medium text-sky-100">
-                  Latest 5 assigned orders
-                </p>
-              </div>
+              <tbody>
+                {latestOrders.length > 0 ? (
+                  latestOrders.map((order) => (
+                    <tr
+                      key={order.id}
+                      className="border-t border-white/10 text-sky-50 transition hover:bg-white/10"
+                    >
+                      <td className="px-4 py-4 font-black text-white">
+                        #{order.id}
+                      </td>
 
-              <div className="rounded-xl bg-blue-500/10 p-3">
-                <Truck className="text-blue-300" size={24} />
-              </div>
-            </div>
+                      <td className="px-4 py-4">
+                        {order.customer?.username || "N/A"}
+                      </td>
 
-            <div className="overflow-x-auto rounded-md border border-white/20">
-              <table className="w-full min-w-[850px] text-left text-sm">
-                <thead className="bg-white/10 text-sky-100">
-                  <tr>
-                    <th className="px-4 py-4">ORDER</th>
-                    <th className="px-4 py-4">CUSTOMER</th>
-                    <th className="px-4 py-4">FROM</th>
-                    <th className="px-4 py-4">TO</th>
-                    <th className="px-4 py-4">STATUS</th>
-                    <th className="px-4 py-4">DATE</th>
-                    <th className="px-4 py-4">UPDATE LOCATION</th>
+                      <td className="px-4 py-4">
+                        {order.pickupLocation || "N/A"}
+                      </td>
 
-                  </tr>
-                </thead>
+                      <td className="px-4 py-4">
+                        {order.deliveryLocation || "N/A"}
+                      </td>
 
-                <tbody>
-                  {latestOrders.length > 0 ? (
-                    latestOrders.map((order) => (
-                      <tr
-                        key={order.id}
-                        className="border-t border-white/10 text-sky-50 transition hover:bg-white/10"
-                      >
-                        <td className="px-4 py-4 font-black text-white">
-                          #{order.id}
-                        </td>
+                      <td className="px-4 py-4">
+                        <span
+                          className={`inline-flex items-center rounded px-2.5 py-1 text-xs font-medium ${getStatusColor(
+                            order.status
+                          )}`}
+                        >
+                          {getStatusLabel(order.status)}
+                        </span>
+                      </td>
 
-                        <td className="px-4 py-4">
-                          {order.customer?.username || "N/A"}
-                        </td>
+                      <td className="px-4 py-4 text-sky-100">
+                        {order.createdAt
+                          ? new Date(order.createdAt).toLocaleDateString()
+                          : "N/A"}
+                      </td>
 
-                        <td className="px-4 py-4">
-                          {order.pickupLocation || "N/A"}
-                        </td>
-
-                        <td className="px-4 py-4">
-                          {order.deliveryLocation || "N/A"}
-                        </td>
-
-                        <td className="px-4 py-4">
-                          <span
-                            className={`inline-flex items-center rounded px-2.5 py-1 text-xs font-medium ${getStatusColor(
-                              order.status
-                            )}`}
+                      <td className="px-4 py-4">
+                        {[
+                          "approved",
+                          "en_route_to_loading",
+                          "loading",
+                          "loading_approved",
+                          "in_transit",
+                          "arrived_at_destination",
+                          "waiting_to_offload",
+                          "offloading",
+                          "offloading_approved",
+                        ].includes(order.status) ? (
+                          <button
+                            type="button"
+                            onClick={() => handleSendCurrentLocation(order.id)}
+                            className="group relative flex h-14 w-14 items-center justify-center rounded-full border border-sky-300 bg-sky-400/20 text-sky-200 shadow-lg shadow-sky-400/20 transition hover:scale-110 hover:bg-blue-700 hover:text-white"
+                            title="Send current location"
                           >
-                            {getStatusLabel(order.status)}
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-300 opacity-30" />
+                            <LocateFixed
+                              size={28}
+                              className="relative z-10 animate-pulse"
+                            />
+                          </button>
+                        ) : (
+                          <span className="text-xs font-semibold text-sky-200">
+                            Not active
                           </span>
-                        </td>
-                        <td className="px-4 py-4 text-sky-100">
-                          {order.createdAt
-                            ? new Date(order.createdAt).toLocaleDateString()
-                            : "N/A"}
-                        </td>
+                        )}
+                      </td>
 
-                        <td className="px-4 py-4">
-  {["approved", "loading", "in_transit", "offloading"].includes(
-    order.status
-  ) ? (
-    <button
-      type="button"
-      onClick={() => handleSendCurrentLocation(order.id)}
-      className="group relative flex h-14 w-14 items-center justify-center rounded-full border border-sky-300 bg-sky-400/20 text-sky-200 shadow-lg shadow-sky-400/20 transition hover:scale-110 hover:bg-blue-700 hover:text-white"
-      title="Send current location"
-    >
-      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-300 opacity-30" />
-      <LocateFixed
-        size={28}
-        className="relative z-10 animate-pulse"
-      />
-    </button>
-  ) : (
-    <span className="text-xs font-semibold text-sky-200">
-      Not active
-    </span>
-  )}
-</td>
-
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td
-                        colSpan="6"
-                        className="px-4 py-8 text-center font-semibold text-sky-100"
-                      >
-                        No recent orders found
+                      <td className="px-4 py-4">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedOrder(order);
+                            setModalType("journey");
+                          }}
+                          className="flex items-center justify-center gap-2 rounded-lg border border-white/40 px-4 py-2 text-xs font-semibold text-white transition hover:border-blue-500 hover:bg-blue-700"
+                        >
+                          <Route size={16} />
+                          Update
+                        </button>
                       </td>
                     </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  ))
+                ) : (
+                  <tr>
+                    <td
+                      colSpan="8"
+                      className="px-4 py-8 text-center font-semibold text-sky-100"
+                    >
+                      No recent orders found
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -626,15 +665,24 @@ await API.post(`/order-locations/${orderId}`, {
                               className="text-sky-300"
                             />
                             ETA:{" "}
-                            {new Date(
-                              order.forecastedArrival
-                            ).toLocaleString()}
+                            {new Date(order.forecastedArrival).toLocaleString()}
                           </p>
                         )}
                       </div>
                     </div>
 
-                    <div className="mt-4 border-t border-white/10 pt-4">
+                    <div className="mt-4 flex flex-wrap gap-3 border-t border-white/10 pt-4">
+                      <button
+                        onClick={() => {
+                          setSelectedOrder(order);
+                          setModalType("journey");
+                        }}
+                        className="flex w-full items-center justify-center gap-2 rounded-lg border border-sky-300 bg-sky-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-700 sm:w-auto"
+                      >
+                        <Route size={18} />
+                        Update Journey
+                      </button>
+
                       {order.status === "approved" && (
                         <button
                           onClick={() => {
@@ -651,11 +699,15 @@ await API.post(`/order-locations/${orderId}`, {
                       {order.status === "loading" && !order.loadingApproved && (
                         <div className="flex items-center gap-2 rounded bg-yellow-100 px-4 py-2 text-sm font-semibold text-yellow-800">
                           <Loader size={18} />
-                          Loading details submitted. Waiting for admin approval...
+                          Loading details submitted. Waiting for admin approval.
                         </div>
                       )}
 
-                      {order.status === "in_transit" && (
+                      {[
+                        "in_transit",
+                        "arrived_at_destination",
+                        "waiting_to_offload",
+                      ].includes(order.status) && (
                         <button
                           onClick={() => {
                             setSelectedOrder(order);
@@ -672,28 +724,59 @@ await API.post(`/order-locations/${orderId}`, {
                         !order.offloadingApproved && (
                           <div className="flex items-center gap-2 rounded bg-yellow-100 px-4 py-2 text-sm font-semibold text-yellow-800">
                             <Loader size={18} />
-                            POD uploaded. Waiting for admin approval...
+                            POD uploaded. Waiting for admin approval.
                           </div>
                         )}
 
-                      {order.status === "offloading" &&
-                        order.offloadingApproved && (
-                          <button
-                            onClick={() => handleCompleteTrip(order.id)}
-                            className="flex w-full items-center justify-center gap-2 rounded-lg border border-green-300 bg-green-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-700 sm:w-auto"
-                          >
-                            <CheckCircle2 size={18} />
-                            Complete Trip
-                          </button>
-                        )}
+                      {order.status === "offloading_approved" && (
+                        <button
+                          onClick={() => handleCompleteTrip(order.id)}
+                          className="flex w-full items-center justify-center gap-2 rounded-lg border border-green-300 bg-green-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-700 sm:w-auto"
+                        >
+                          <CheckCircle2 size={18} />
+                          Mark Delivered
+                        </button>
+                      )}
 
-                      {order.status === "delivered" && (
+                      {["delivered", "customer_confirmed"].includes(order.status) && (
                         <div className="flex items-center gap-2 rounded bg-green-100 px-4 py-2 text-sm font-semibold text-green-800">
                           <CheckCircle2 size={18} />
-                          Order Completed Successfully!
+                          Order Completed Successfully
                         </div>
                       )}
                     </div>
+
+                    {order.statusUpdates?.length > 0 && (
+                      <div className="mt-4 rounded-md border border-white/10 bg-white/10 p-4">
+                        <p className="mb-3 font-black text-white">
+                          Journey Timeline
+                        </p>
+
+                        <div className="space-y-3">
+                          {order.statusUpdates.slice(0, 5).map((update) => (
+                            <div
+                              key={update.id}
+                              className="rounded-md border border-white/10 bg-white/10 p-3 text-sm"
+                            >
+                              <p className="font-bold text-sky-100">
+                                {update.title}
+                              </p>
+
+                              {update.note && (
+                                <p className="mt-1 text-sky-200">
+                                  {update.note}
+                                </p>
+                              )}
+
+                              <p className="mt-1 text-xs text-sky-300">
+                                {update.updatedByUser?.username || "System"} •{" "}
+                                {new Date(update.createdAt).toLocaleString()}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {order.truck && (
                       <div className="mt-4 flex items-center gap-2 border-t border-white/10 pt-3 text-sm text-sky-100">
@@ -711,6 +794,105 @@ await API.post(`/order-locations/${orderId}`, {
             )}
           </div>
         )}
+
+        {modalType === "journey" && selectedOrder && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-blue-950/75 px-3 py-4 backdrop-blur-sm">
+            <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[28px] bg-gradient-to-r from-blue-950 via-sky-500 to-blue-800 p-[4px] shadow-2xl">
+              <div className="rounded-[24px] bg-gradient-to-r from-slate-100 via-sky-100 to-white p-5 sm:p-6">
+                <h2 className="mb-5 text-2xl font-black text-blue-950">
+                  Journey Update - Order #{selectedOrder.id}
+                </h2>
+
+                <form
+                  className="space-y-5"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleSubmitJourneyUpdate(selectedOrder.id);
+                  }}
+                >
+                  <div>
+                    <label className={labelClass}>Journey Status</label>
+
+                    <select
+                      value={journeyData.status}
+                      onChange={(e) =>
+                        setJourneyData({
+                          ...journeyData,
+                          status: e.target.value,
+                        })
+                      }
+                      className={inputClass}
+                      required
+                    >
+                      <option value="">Select journey update</option>
+                      {journeyOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className={labelClass}>Location Name</label>
+                    <input
+                      type="text"
+                      value={journeyData.locationName}
+                      onChange={(e) =>
+                        setJourneyData({
+                          ...journeyData,
+                          locationName: e.target.value,
+                        })
+                      }
+                      className={inputClass}
+                      placeholder="e.g. Beitbridge Border Post, Masvingo Tollgate"
+                    />
+                  </div>
+
+                  <div>
+                    <label className={labelClass}>Notes</label>
+                    <textarea
+                      value={journeyData.note}
+                      onChange={(e) =>
+                        setJourneyData({
+                          ...journeyData,
+                          note: e.target.value,
+                        })
+                      }
+                      className={inputClass}
+                      rows="3"
+                      placeholder="Add extra details about the update"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-3 border-t border-sky-200 pt-5 sm:flex-row sm:justify-end">
+                    <button type="submit" className={modalPrimaryButton}>
+                      Submit Journey Update
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedOrder(null);
+                        setModalType(null);
+                        setJourneyData({
+                          status: "",
+                          note: "",
+                          locationName: "",
+                          proofImage: null,
+                        });
+                      }}
+                      className={modalCancelButton}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
+
 
         {modalType === "loading" && selectedOrder && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-blue-950/75 px-3 py-4 backdrop-blur-sm">
@@ -887,8 +1069,7 @@ await API.post(`/order-locations/${orderId}`, {
                     )}
 
                     <p className="mt-1 text-xs text-slate-500">
-                      Upload signed Proof of Delivery document. Photo or PDF, max
-                      10MB.
+                      Upload signed Proof of Delivery document. Photo or PDF, max 10MB.
                     </p>
                   </div>
 
@@ -914,6 +1095,7 @@ await API.post(`/order-locations/${orderId}`, {
             </div>
           </div>
         )}
+
       </div>
     </DashboardLayout>
   );

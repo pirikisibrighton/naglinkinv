@@ -67,7 +67,6 @@ const [quoteReplyData, setQuoteReplyData] = useState({
   const [approvalData, setApprovalData] = useState({
     price: "",
     driverId: "",
-    truckId: "",
     departureTime: "",
     forecastedArrival: "",
   });
@@ -182,6 +181,12 @@ const getFilteredOrders = () => {
         order.truck?.licensePlate?.toLowerCase().includes(q) ||
         order.locations?.some((location) =>
           location.locationName?.toLowerCase().includes(q)
+        ) ||
+        order.statusUpdates?.some((update) =>
+          update.title?.toLowerCase().includes(q) ||
+          update.note?.toLowerCase().includes(q) ||
+          update.status?.toLowerCase().includes(q) ||
+          update.updatedByUser?.username?.toLowerCase().includes(q)
         )
     );
   }
@@ -271,6 +276,63 @@ const getExpenseTotal = (expense) => {
     Number(expense.loadingCost || 0) +
     Number(expense.offloadingCost || 0) +
     Number(expense.otherCost || 0)
+  );
+};
+
+const renderJourneyUpdates = (order, compact = false) => {
+  const updates = order.statusUpdates || [];
+
+  if (!updates.length) {
+    return (
+      <span className="text-xs text-sky-200">
+        No journey updates
+      </span>
+    );
+  }
+
+  const visibleUpdates = compact ? updates.slice(0, 3) : updates;
+
+  return (
+    <div className={compact ? "max-h-32 space-y-2 overflow-y-auto" : "max-h-44 space-y-2 overflow-y-auto"}>
+      {visibleUpdates.map((update) => (
+        <div
+          key={update.id}
+          className="rounded-md border border-white/10 bg-white/10 p-2 text-xs"
+        >
+          <div className="flex items-start gap-2">
+            <Route size={14} className="mt-0.5 shrink-0 text-sky-300" />
+
+            <div className="min-w-0">
+              <p className="font-bold text-white">
+                {update.title || update.status?.replaceAll("_", " ") || "Journey update"}
+              </p>
+
+              {update.locationName && (
+                <p className="mt-1 text-sky-200">
+                  📍 {update.locationName}
+                </p>
+              )}
+
+              {update.note && (
+                <p className="mt-1 text-sky-200">
+                  {update.note}
+                </p>
+              )}
+
+              <p className="mt-1 text-[11px] text-sky-300">
+                {update.updatedByUser?.username || "System"} • {update.createdAt ? new Date(update.createdAt).toLocaleString() : "N/A"}
+              </p>
+            </div>
+          </div>
+        </div>
+      ))}
+
+      {compact && updates.length > 3 && (
+        <p className="text-[11px] font-semibold text-sky-200">
+          +{updates.length - 3} more updates
+        </p>
+      )}
+    </div>
   );
 };
 
@@ -503,7 +565,6 @@ const getFilteredDrivers = () => {
     setApprovalData({
       price: order.price || "",
       driverId: order.driverId || "",
-      truckId: order.truckId || "",
       departureTime: order.departureTime ? order.departureTime.slice(0, 16) : "",
       forecastedArrival: order.forecastedArrival
         ? order.forecastedArrival.slice(0, 16)
@@ -517,7 +578,12 @@ const getFilteredDrivers = () => {
     e.preventDefault();
 
     try {
-      await API.put(`/orders/${selectedOrder.id}/approve`, approvalData);
+      await API.put(`/orders/${selectedOrder.id}/approve`, {
+        price: approvalData.price,
+        driverId: approvalData.driverId,
+        departureTime: approvalData.departureTime,
+        forecastedArrival: approvalData.forecastedArrival,
+      });
       toast.success("Order approved successfully!");
       setShowApproveModal(false);
       fetchOrders();
@@ -557,10 +623,16 @@ const getFilteredDrivers = () => {
     const colors = {
       pending: "bg-yellow-100 text-yellow-800 border border-yellow-200",
       approved: "bg-blue-100 text-blue-800 border border-blue-200",
+      en_route_to_loading: "bg-cyan-100 text-cyan-800 border border-cyan-200",
       loading: "bg-purple-100 text-purple-800 border border-purple-200",
+      loading_approved: "bg-purple-100 text-purple-800 border border-purple-200",
       in_transit: "bg-indigo-100 text-indigo-800 border border-indigo-200",
+      arrived_at_destination: "bg-sky-100 text-sky-800 border border-sky-200",
+      waiting_to_offload: "bg-orange-100 text-orange-800 border border-orange-200",
       offloading: "bg-orange-100 text-orange-800 border border-orange-200",
+      offloading_approved: "bg-emerald-100 text-emerald-800 border border-emerald-200",
       delivered: "bg-green-100 text-green-800 border border-green-200",
+      customer_confirmed: "bg-emerald-100 text-emerald-800 border border-emerald-200",
       cancelled: "bg-red-100 text-red-800 border border-red-200",
     };
 
@@ -827,7 +899,7 @@ const getFilteredDrivers = () => {
         </div>
 
         <div className="overflow-x-auto rounded-md border border-white/20">
-          <table className="w-full min-w-[850px] text-left text-sm">
+          <table className="w-full min-w-[1150px] text-left text-sm">
             <thead className="bg-white/10 text-sky-100">
               <tr>
                 <th className="px-4 py-4">ORDER</th>
@@ -837,6 +909,7 @@ const getFilteredDrivers = () => {
                 <th className="px-4 py-4">STATUS</th>
                 <th className="px-4 py-4">DATE</th>
                 <th className="px-4 py-4">LOCATION UPDATES</th>
+                <th className="px-4 py-4">JOURNEY UPDATES</th>
               </tr>
             </thead>
 
@@ -905,12 +978,16 @@ const getFilteredDrivers = () => {
       )}
     </div>
   </td>
+
+  <td className="min-w-[300px] px-4 py-4">
+    {renderJourneyUpdates(order, true)}
+  </td>
 </tr>
                 ))
               ) : (
                 <tr>
                   <td
-                    colSpan="7"
+                    colSpan="8"
                     className="px-4 py-8 text-center font-semibold text-sky-100"
                   >
                     No recent orders found
@@ -1015,7 +1092,7 @@ const getFilteredDrivers = () => {
       </div>
 
       <div className="overflow-x-auto rounded-md border border-white/20">
-        <table className="w-full min-w-[1750px] text-left text-sm">
+        <table className="w-full min-w-[2050px] text-left text-sm">
           <thead className="bg-white/10 text-sky-100">
             <tr>
               <th className="px-4 py-4">ORDER</th>
@@ -1030,6 +1107,7 @@ const getFilteredDrivers = () => {
               <th className="px-4 py-4">EXPENSES</th>
               <th className="px-4 py-4">ACTIONS</th>
               <th className="px-4 py-4">LOCATION UPDATES</th>
+              <th className="px-4 py-4">JOURNEY UPDATES</th>
             </tr>
           </thead>
 
@@ -1037,7 +1115,7 @@ const getFilteredDrivers = () => {
             {getFilteredOrders().length === 0 ? (
               <tr>
                 <td
-                  colSpan="11"
+                  colSpan="12"
                   className="px-4 py-10 text-center font-semibold text-sky-100"
                 >
                   No orders found
@@ -1268,6 +1346,10 @@ const getFilteredDrivers = () => {
                         </span>
                       )}
                     </div>
+                  </td>
+
+                  <td className="min-w-[340px] px-4 py-4">
+                    {renderJourneyUpdates(order)}
                   </td>
                 </tr>
               ))
@@ -2098,30 +2180,9 @@ const getFilteredDrivers = () => {
                     </select>
                   </div>
 
-                  <div>
-                    <label className={labelClass}>Assign Truck</label>
-                    <select
-                      value={approvalData.truckId}
-                      onChange={(e) =>
-                        setApprovalData({
-                          ...approvalData,
-                          truckId: e.target.value,
-                        })
-                      }
-                      className={inputClass}
-                      required
-                    >
-                      <option value="">Select Truck</option>
-                      {trucks
-                        .filter((t) => t.isAvailable)
-                        .map((truck) => (
-                          <option key={truck.id} value={truck.id}>
-                            {truck.truckName} - {truck.licensePlate} (
-                            {truck.capacity})
-                          </option>
-                        ))}
-                    </select>
-                  </div>
+                  <p className="rounded-xl border border-sky-200 bg-white/70 p-3 text-sm font-semibold text-blue-950">
+                    The truck will be selected automatically from the selected driver's assigned truck.
+                  </p>
 
                   <div>
                     <label className={labelClass}>Departure Time</label>

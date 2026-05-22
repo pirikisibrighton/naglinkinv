@@ -16,6 +16,7 @@ import {
   PlusCircle,
   Truck,
   X,
+  CheckCircle2,
 } from "lucide-react";
 
 const CustomerDashboard = () => {
@@ -48,9 +49,9 @@ const CustomerDashboard = () => {
   });
 
   useEffect(() => {
-  fetchOrders();
-  fetchQuotes();
-}, []);
+    fetchOrders();
+    fetchQuotes();
+  }, []);
 
   const fetchOrders = async () => {
     try {
@@ -62,42 +63,40 @@ const CustomerDashboard = () => {
   };
 
   const fetchQuotes = async () => {
-  try {
-    const response = await API.get("/quotes/my-quotes");
-    setQuotes(response.data.quotes || []);
-  } catch (error) {
-    console.error("Error fetching quotes:", error);
-  }
-};
+    try {
+      const response = await API.get("/quotes/my-quotes");
+      setQuotes(response.data.quotes || []);
+    } catch (error) {
+      console.error("Error fetching quotes:", error);
+    }
+  };
 
   const handleQuoteRequest = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  try {
-    const response = await API.post("/quotes", quoteData);
+    try {
+      await API.post("/quotes", quoteData);
 
-    console.log("Quote response:", response.data);
+      toast.success("Quote requested successfully!");
+      fetchQuotes();
+      setShowQuoteForm(false);
 
-    toast.success("Quote requested successfully!");
-    fetchQuotes();
-    setShowQuoteForm(false);
+      setQuoteData({
+        pickupCity: "",
+        deliveryCity: "",
+        goodsType: "",
+        preferredService: "",
+      });
+    } catch (error) {
+      console.error("Quote request error:", error);
 
-    setQuoteData({
-      pickupCity: "",
-      deliveryCity: "",
-      goodsType: "",
-      preferredService: "",
-    });
-  } catch (error) {
-    console.error("Quote request error:", error);
-
-    toast.error(
-      error.response?.data?.message ||
-        error.response?.statusText ||
-        "Error requesting quote"
-    );
-  }
-};
+      toast.error(
+        error.response?.data?.message ||
+          error.response?.statusText ||
+          "Error requesting quote"
+      );
+    }
+  };
 
   const handleOrderCreation = async (e) => {
     e.preventDefault();
@@ -117,6 +116,27 @@ const CustomerDashboard = () => {
       fetchOrders();
     } catch (error) {
       toast.error("Error creating order");
+    }
+  };
+
+  const handleCustomerConfirmReceived = async (orderId) => {
+    if (!window.confirm("Confirm that you received this delivery?")) {
+      return;
+    }
+
+    try {
+      await API.post(`/order-status-updates/${orderId}`, {
+        status: "customer_confirmed",
+        note: "Customer confirmed that the delivery was received.",
+      });
+
+      toast.success("Delivery confirmed successfully!");
+      fetchOrders();
+    } catch (error) {
+      console.error("Confirm delivery error:", error);
+      toast.error(
+        error.response?.data?.message || "Error confirming delivery"
+      );
     }
   };
 
@@ -159,24 +179,58 @@ const CustomerDashboard = () => {
     const colors = {
       pending: "bg-yellow-100 text-yellow-800 border border-yellow-200",
       approved: "bg-blue-100 text-blue-800 border border-blue-200",
+      en_route_to_loading: "bg-cyan-100 text-cyan-800 border border-cyan-200",
       loading: "bg-purple-100 text-purple-800 border border-purple-200",
+      loading_approved:
+        "bg-purple-100 text-purple-800 border border-purple-200",
       in_transit: "bg-indigo-100 text-indigo-800 border border-indigo-200",
+      arrived_at_destination:
+        "bg-sky-100 text-sky-800 border border-sky-200",
+      waiting_to_offload:
+        "bg-orange-100 text-orange-800 border border-orange-200",
       offloading: "bg-orange-100 text-orange-800 border border-orange-200",
+      offloading_approved:
+        "bg-emerald-100 text-emerald-800 border border-emerald-200",
       delivered: "bg-green-100 text-green-800 border border-green-200",
+      customer_confirmed:
+        "bg-emerald-100 text-emerald-800 border border-emerald-200",
       cancelled: "bg-red-100 text-red-800 border border-red-200",
     };
 
-    return colors[status] || "bg-slate-100 text-slate-800 border border-slate-200";
-  };
-  const getQuoteStatusColor = (status) => {
-  const colors = {
-    pending: "bg-blue-100 text-blue-700 border border-blue-200",
-    open: "bg-yellow-100 text-yellow-700 border border-yellow-200",
-    closed: "bg-emerald-100 text-emerald-700 border border-emerald-200",
+    return (
+      colors[status] || "bg-slate-100 text-slate-800 border border-slate-200"
+    );
   };
 
-  return colors[status] || colors.pending;
-};
+  const getStatusLabel = (status) => {
+    const labels = {
+      pending: "Pending",
+      approved: "Approved",
+      en_route_to_loading: "En Route To Loading",
+      loading: "Loading",
+      loading_approved: "Loading Approved",
+      in_transit: "In Transit",
+      arrived_at_destination: "Arrived At Destination",
+      waiting_to_offload: "Waiting To Offload",
+      offloading: "Offloading",
+      offloading_approved: "Offloading Approved",
+      delivered: "Delivered",
+      customer_confirmed: "Customer Confirmed",
+      cancelled: "Cancelled",
+    };
+
+    return labels[status] || "Pending";
+  };
+
+  const getQuoteStatusColor = (status) => {
+    const colors = {
+      pending: "bg-blue-100 text-blue-700 border border-blue-200",
+      open: "bg-yellow-100 text-yellow-700 border border-yellow-200",
+      closed: "bg-emerald-100 text-emerald-700 border border-emerald-200",
+    };
+
+    return colors[status] || colors.pending;
+  };
 
   const getFilteredOrders = () => {
     if (!globalSearch) return orders;
@@ -203,9 +257,24 @@ const CustomerDashboard = () => {
   const filteredOrders = getFilteredOrders();
 
   const totalOrders = orders.length;
-  const deliveredOrders = orders.filter((order) => order.status === "delivered").length;
+
+  const deliveredOrders = orders.filter((order) =>
+    ["delivered", "customer_confirmed"].includes(order.status)
+  ).length;
+
   const activeOrders = orders.filter((order) =>
-    ["pending", "approved", "loading", "in_transit", "offloading"].includes(order.status)
+    [
+      "pending",
+      "approved",
+      "en_route_to_loading",
+      "loading",
+      "loading_approved",
+      "in_transit",
+      "arrived_at_destination",
+      "waiting_to_offload",
+      "offloading",
+      "offloading_approved",
+    ].includes(order.status)
   ).length;
 
   const latestOrders = [...filteredOrders]
@@ -240,21 +309,21 @@ const CustomerDashboard = () => {
       globalSearch={globalSearch}
       setGlobalSearch={setGlobalSearch}
       menuItems={[
-  { key: "dashboard", label: "Dashboard" },
-  { key: "orders", label: "My Orders" },
-  { key: "quotes", label: "My Quotes" },
-]}
+        { key: "dashboard", label: "Dashboard" },
+        { key: "orders", label: "My Orders" },
+        { key: "quotes", label: "My Quotes" },
+      ]}
     >
       <div className="space-y-8">
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
           <button
-  type="button"
-  onClick={() => setShowQuoteForm(true)}
-  className={actionButton}
->
-  <FileText size={18} />
-  Request Quote
-</button>
+            type="button"
+            onClick={() => setShowQuoteForm(true)}
+            className={actionButton}
+          >
+            <FileText size={18} />
+            Request Quote
+          </button>
 
           <button onClick={() => setShowOrderForm(true)} className={actionButton}>
             <PlusCircle size={18} />
@@ -263,264 +332,189 @@ const CustomerDashboard = () => {
         </div>
 
         {activeTab === "dashboard" && (
-  <>
-        <div className="rounded-md border border-white/20 bg-gradient-to-br from-blue-950 via-sky-800 to-blue-900 p-5 text-white shadow-xl sm:p-6">
-          <h2 className="text-3xl font-black sm:text-4xl">
-            Welcome back, {user?.username}
-          </h2>
+          <>
+            <div className="rounded-md border border-white/20 bg-gradient-to-br from-blue-950 via-sky-800 to-blue-900 p-5 text-white shadow-xl sm:p-6">
+              <h2 className="text-3xl font-black sm:text-4xl">
+                Welcome back, {user?.username}
+              </h2>
 
-          <p className="mt-2 text-sm font-medium text-sky-100 sm:text-base">
-            Track your shipments, request quotes, and manage your logistics orders.
-          </p>
-        </div>
+              <p className="mt-2 text-sm font-medium text-sky-100 sm:text-base">
+                Track your shipments, request quotes, and manage your logistics
+                orders.
+              </p>
+            </div>
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-          {[
-            {
-              title: "Total Orders",
-              value: totalOrders,
-              subtitle: "All submitted orders",
-              icon: ClipboardList,
-              bgColor: "bg-blue-500/10",
-              textColor: "text-blue-300",
-            },
-            {
-              title: "Delivered",
-              value: deliveredOrders,
-              subtitle: "Completed deliveries",
-              icon: PackageCheck,
-              bgColor: "bg-emerald-500/10",
-              textColor: "text-emerald-300",
-            },
-            {
-              title: "Active Orders",
-              value: activeOrders,
-              subtitle: "Pending and ongoing orders",
-              icon: CalendarClock,
-              bgColor: "bg-orange-500/10",
-              textColor: "text-orange-300",
-            },
-          ].map((card, index) => {
-            const Icon = card.icon;
-
-            return (
-              <div
-                key={index}
-                className="rounded-md border border-white/20 bg-gradient-to-br from-blue-950 via-sky-800 to-blue-900 text-white shadow-xl transition duration-200 hover:border-white/40"
-              >
-                <div className="p-6 py-5">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="mb-1 text-sm font-medium text-sky-100">
-                        {card.title}
-                      </p>
-
-                      <p className="text-3xl font-black text-white sm:text-4xl">
-                        {card.value}
-                      </p>
-
-                      <p className="mt-1 text-xs font-medium text-sky-200">
-                        {card.subtitle}
-                      </p>
-                    </div>
-
-                    <div className={`rounded-xl p-3 ${card.bgColor}`}>
-                      <Icon size={22} className={card.textColor} />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-          <div className="rounded-md border border-white/20 bg-gradient-to-br from-blue-950 via-sky-800 to-blue-900 p-6 text-white shadow-xl transition duration-200 hover:border-white/40">
-            <h3 className="text-xl font-black text-white">
-              Order Status Overview
-            </h3>
-
-            <p className="mt-1 text-sm font-medium text-sky-100">
-              Your order distribution
-            </p>
-
-            <div className="mt-8 flex flex-col items-center">
-              {(() => {
-                const pending = orders.filter((o) => o.status === "pending").length;
-                const loading = orders.filter((o) => o.status === "loading").length;
-                const transit = orders.filter((o) => o.status === "in_transit").length;
-                const offloading = orders.filter((o) => o.status === "offloading").length;
-                const completed = orders.filter((o) => o.status === "delivered").length;
-
-                const total =
-                  pending + loading + transit + offloading + completed || 1;
-
-                const p1 = (pending / total) * 100;
-                const p2 = p1 + (loading / total) * 100;
-                const p3 = p2 + (transit / total) * 100;
-                const p4 = p3 + (offloading / total) * 100;
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+              {[
+                {
+                  title: "Total Orders",
+                  value: totalOrders,
+                  subtitle: "All submitted orders",
+                  icon: ClipboardList,
+                  bgColor: "bg-blue-500/10",
+                  textColor: "text-blue-300",
+                },
+                {
+                  title: "Delivered",
+                  value: deliveredOrders,
+                  subtitle: "Completed deliveries",
+                  icon: PackageCheck,
+                  bgColor: "bg-emerald-500/10",
+                  textColor: "text-emerald-300",
+                },
+                {
+                  title: "Active Orders",
+                  value: activeOrders,
+                  subtitle: "Pending and ongoing orders",
+                  icon: CalendarClock,
+                  bgColor: "bg-orange-500/10",
+                  textColor: "text-orange-300",
+                },
+              ].map((card, index) => {
+                const Icon = card.icon;
 
                 return (
                   <div
-                    className="relative flex h-52 w-52 items-center justify-center rounded-full sm:h-56 sm:w-56"
-                    style={{
-                      background: `conic-gradient(
-                        #facc15 0% ${p1}%,
-                        #a855f7 ${p1}% ${p2}%,
-                        #38bdf8 ${p2}% ${p3}%,
-                        #f97316 ${p3}% ${p4}%,
-                        #22c55e ${p4}% 100%
-                      )`,
-                    }}
+                    key={index}
+                    className="rounded-md border border-white/20 bg-gradient-to-br from-blue-950 via-sky-800 to-blue-900 text-white shadow-xl transition duration-200 hover:border-white/40"
                   >
-                    <div className="flex h-32 w-32 flex-col items-center justify-center rounded-full border border-white/20 bg-blue-950 shadow-inner">
-                      <p className="text-4xl font-black text-white">{total}</p>
-                      <p className="text-xs font-bold uppercase text-sky-200">
-                        Total
-                      </p>
+                    <div className="p-6 py-5">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="mb-1 text-sm font-medium text-sky-100">
+                            {card.title}
+                          </p>
+
+                          <p className="text-3xl font-black text-white sm:text-4xl">
+                            {card.value}
+                          </p>
+
+                          <p className="mt-1 text-xs font-medium text-sky-200">
+                            {card.subtitle}
+                          </p>
+                        </div>
+
+                        <div className={`rounded-xl p-3 ${card.bgColor}`}>
+                          <Icon size={22} className={card.textColor} />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 );
-              })()}
-
-              <div className="mt-8 grid grid-cols-2 gap-4 text-sm font-semibold text-sky-100">
-                <div className="flex items-center gap-2">
-                  <span className="h-3 w-3 rounded-full bg-yellow-400" />
-                  Pending
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="h-3 w-3 rounded-full bg-purple-500" />
-                  Loading
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="h-3 w-3 rounded-full bg-sky-400" />
-                  In Transit
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="h-3 w-3 rounded-full bg-orange-500" />
-                  Offloading
-                </div>
-
-                <div className="col-span-2 flex items-center justify-center gap-2">
-                  <span className="h-3 w-3 rounded-full bg-green-500" />
-                  Delivered
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-md border border-white/20 bg-gradient-to-br from-blue-950 via-sky-800 to-blue-900 p-6 text-white shadow-xl transition duration-200 hover:border-white/40 xl:col-span-2">
-            <div className="mb-5 flex items-center justify-between gap-4">
-              <div>
-                <h3 className="text-xl font-black text-white">Recent Orders</h3>
-
-                <p className="mt-1 text-sm font-medium text-sky-100">
-                  Latest 5 submitted orders
-                </p>
-              </div>
-
-              <div className="rounded-xl bg-blue-500/10 p-3">
-                <Truck className="text-blue-300" size={24} />
-              </div>
+              })}
             </div>
 
-            <div className="overflow-x-auto rounded-md border border-white/20">
-  <table className="w-full min-w-[1000px] text-left text-sm">
-    <thead className="bg-white/10 text-sky-100">
-      <tr>
-        <th className="px-4 py-4">ORDER</th>
-        <th className="px-4 py-4">FROM</th>
-        <th className="px-4 py-4">TO</th>
-        <th className="px-4 py-4">WEIGHT</th>
-        <th className="px-4 py-4">STATUS</th>
-        <th className="px-4 py-4">LOCATIONS</th>
-        <th className="px-4 py-4">DATE</th>
-      </tr>
-    </thead>
+            <div className="rounded-md border border-white/20 bg-gradient-to-br from-blue-950 via-sky-800 to-blue-900 p-6 text-white shadow-xl">
+              <div className="mb-5 flex items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-xl font-black text-white">
+                    Recent Orders
+                  </h3>
 
-                <tbody>
-                  {latestOrders.length > 0 ? (
-                    latestOrders.map((order) => (
-                      <tr
-                        key={order.id}
-                        className="border-t border-white/10 text-sky-50 transition hover:bg-white/10"
-                      >
-                        <td className="px-4 py-4 font-black text-white">
-                          #{order.id}
-                        </td>
+                  <p className="mt-1 text-sm font-medium text-sky-100">
+                    Latest 5 submitted orders
+                  </p>
+                </div>
 
-                        <td className="px-4 py-4">
-                          {order.pickupLocation || "N/A"}
-                        </td>
+                <div className="rounded-xl bg-blue-500/10 p-3">
+                  <Truck className="text-blue-300" size={24} />
+                </div>
+              </div>
 
-                        <td className="px-4 py-4">
-                          {order.deliveryLocation || "N/A"}
-                        </td>
-
-                        <td className="px-4 py-4">
-                          {order.weight || "N/A"} kg
-                        </td>
-
-                        <td className="px-4 py-4">
-  <span
-    className={`rounded-full px-3 py-1 text-xs font-black ${getStatusColor(
-      order.status
-    )}`}
-  >
-    {order.status?.replace("_", " ").toUpperCase() || "PENDING"}
-  </span>
-</td>
-
-<td className="px-4 py-4">
-  <div className="max-h-28 space-y-2 overflow-y-auto">
-    {order.locations?.length > 0 ? (
-      order.locations.map((location) => (
-        <div
-          key={location.id}
-          className="rounded-md border border-white/10 bg-white/10 p-2"
-        >
-          <p className="font-bold text-sky-100">
-            {location.locationName}
-          </p>
-
-          <p className="text-xs text-sky-200">
-            {new Date(location.createdAt).toLocaleString()}
-          </p>
-        </div>
-      ))
-    ) : (
-      <span className="text-xs text-sky-200">No updates</span>
-    )}
-  </div>
-</td>
-
-<td className="px-4 py-4 text-sky-100">
-  {order.createdAt
-    ? new Date(order.createdAt).toLocaleDateString()
-    : "N/A"}
-</td>
-                      </tr>
-                    ))
-                  ) : (
+              <div className="overflow-x-auto rounded-md border border-white/20">
+                <table className="w-full min-w-[1100px] text-left text-sm">
+                  <thead className="bg-white/10 text-sky-100">
                     <tr>
-                      <td
-                        colSpan="7"
-                        className="px-4 py-8 text-center font-semibold text-sky-100"
-                      >
-                        No recent orders found
-                      </td>
+                      <th className="px-4 py-4">ORDER</th>
+                      <th className="px-4 py-4">FROM</th>
+                      <th className="px-4 py-4">TO</th>
+                      <th className="px-4 py-4">WEIGHT</th>
+                      <th className="px-4 py-4">STATUS</th>
+                      <th className="px-4 py-4">LATEST JOURNEY</th>
+                      <th className="px-4 py-4">DATE</th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
+                  </thead>
+
+                  <tbody>
+                    {latestOrders.length > 0 ? (
+                      latestOrders.map((order) => {
+                        const latestUpdate = order.statusUpdates?.[0];
+
+                        return (
+                          <tr
+                            key={order.id}
+                            className="border-t border-white/10 text-sky-50 transition hover:bg-white/10"
+                          >
+                            <td className="px-4 py-4 font-black text-white">
+                              #{order.id}
+                            </td>
+
+                            <td className="px-4 py-4">
+                              {order.pickupLocation || "N/A"}
+                            </td>
+
+                            <td className="px-4 py-4">
+                              {order.deliveryLocation || "N/A"}
+                            </td>
+
+                            <td className="px-4 py-4">
+                              {order.weight || "N/A"} kg
+                            </td>
+
+                            <td className="px-4 py-4">
+                              <span
+                                className={`rounded-full px-3 py-1 text-xs font-black ${getStatusColor(
+                                  order.status
+                                )}`}
+                              >
+                                {getStatusLabel(order.status)}
+                              </span>
+                            </td>
+
+                            <td className="px-4 py-4">
+                              {latestUpdate ? (
+                                <div className="rounded-md border border-white/10 bg-white/10 p-2">
+                                  <p className="font-bold text-sky-100">
+                                    {latestUpdate.title}
+                                  </p>
+
+                                  <p className="text-xs text-sky-200">
+                                    {new Date(
+                                      latestUpdate.createdAt
+                                    ).toLocaleString()}
+                                  </p>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-sky-200">
+                                  No journey updates
+                                </span>
+                              )}
+                            </td>
+
+                            <td className="px-4 py-4 text-sky-100">
+                              {order.createdAt
+                                ? new Date(order.createdAt).toLocaleDateString()
+                                : "N/A"}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    ) : (
+                      <tr>
+                        <td
+                          colSpan="7"
+                          className="px-4 py-8 text-center font-semibold text-sky-100"
+                        >
+                          No recent orders found
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-        </div>
           </>
-)}
+        )}
 
         {activeTab === "orders" && (
           <div className="rounded-md border border-white/20 bg-gradient-to-br from-blue-950 via-sky-800 to-blue-900 p-4 text-white shadow-xl sm:p-6">
@@ -568,11 +562,31 @@ const CustomerDashboard = () => {
                             order.status
                           )}`}
                         >
-                          {order.status?.replace("_", " ").toUpperCase() ||
-                            "PENDING"}
+                          {getStatusLabel(order.status)}
                         </span>
 
                         {order.status === "delivered" && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleCustomerConfirmReceived(order.id)
+                            }
+                            className="mt-3 flex items-center justify-center gap-2 rounded-lg border border-emerald-300 bg-emerald-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700"
+                          >
+                            <CheckCircle2 size={16} />
+                            Confirm Received
+                          </button>
+                        )}
+
+                        {order.status === "customer_confirmed" && (
+                          <div className="mt-3 rounded bg-green-100 px-4 py-2 text-xs font-semibold text-green-800">
+                            Delivery confirmed received
+                          </div>
+                        )}
+
+                        {["delivered", "customer_confirmed"].includes(
+                          order.status
+                        ) && (
                           <div className="mt-3 flex flex-col gap-2">
                             <button
                               onClick={() => handlePrintInvoice(order.id)}
@@ -596,32 +610,80 @@ const CustomerDashboard = () => {
                             <p>Contact: {order.driver.email}</p>
                           </div>
                         )}
-
-                        <div className="mt-4 rounded-md border border-white/10 bg-white/10 p-3 text-sm text-sky-100">
-  <p className="mb-2 font-black text-white">Location Updates</p>
-
-  {order.locations?.length > 0 ? (
-    <div className="space-y-2">
-      {order.locations.map((location) => (
-        <div
-          key={location.id}
-          className="rounded-md border border-white/10 bg-white/10 p-2"
-        >
-          <p className="font-bold text-sky-100">
-            {location.locationName}
-          </p>
-
-          <p className="text-xs text-sky-200">
-            {new Date(location.createdAt).toLocaleString()}
-          </p>
-        </div>
-      ))}
-    </div>
-  ) : (
-    <p className="text-xs text-sky-200">No location updates yet</p>
-  )}
-</div>
                       </div>
+                    </div>
+
+                    <div className="mt-4 rounded-md border border-white/10 bg-white/10 p-3 text-sm text-sky-100">
+                      <p className="mb-2 font-black text-white">
+                        Location Updates
+                      </p>
+
+                      {order.locations?.length > 0 ? (
+                        <div className="space-y-2">
+                          {order.locations.map((location) => (
+                            <div
+                              key={location.id}
+                              className="rounded-md border border-white/10 bg-white/10 p-2"
+                            >
+                              <p className="font-bold text-sky-100">
+                                {location.locationName}
+                              </p>
+
+                              <p className="text-xs text-sky-200">
+                                {new Date(
+                                  location.createdAt
+                                ).toLocaleString()}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-sky-200">
+                          No location updates yet
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="mt-4 rounded-md border border-white/10 bg-white/10 p-3 text-sm text-sky-100">
+                      <p className="mb-2 font-black text-white">
+                        Journey Timeline
+                      </p>
+
+                      {order.statusUpdates?.length > 0 ? (
+                        <div className="space-y-2">
+                          {order.statusUpdates.map((update) => (
+                            <div
+                              key={update.id}
+                              className="rounded-md border border-white/10 bg-white/10 p-2"
+                            >
+                              <p className="font-bold text-sky-100">
+                                {update.title}
+                              </p>
+
+                              {update.locationName && (
+                                <p className="text-xs text-sky-200">
+                                  Location: {update.locationName}
+                                </p>
+                              )}
+
+                              {update.note && (
+                                <p className="mt-1 text-xs text-sky-200">
+                                  {update.note}
+                                </p>
+                              )}
+
+                              <p className="mt-1 text-xs text-sky-300">
+                                {update.updatedByUser?.username || "System"} •{" "}
+                                {new Date(update.createdAt).toLocaleString()}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-sky-200">
+                          No journey updates yet
+                        </p>
+                      )}
                     </div>
 
                     {(order.departureTime || order.forecastedArrival) && (
@@ -637,7 +699,9 @@ const CustomerDashboard = () => {
                           <span>
                             Expected Arrival:{" "}
                             {order.forecastedArrival
-                              ? new Date(order.forecastedArrival).toLocaleString()
+                              ? new Date(
+                                  order.forecastedArrival
+                                ).toLocaleString()
                               : "N/A"}
                           </span>
                         </div>
@@ -645,118 +709,116 @@ const CustomerDashboard = () => {
                     )}
                   </div>
                 ))}
-
-
               </div>
             )}
           </div>
         )}
 
         {activeTab === "quotes" && (
-  <div className="rounded-md border border-white/20 bg-gradient-to-br from-blue-950 via-sky-800 to-blue-900 p-4 text-white shadow-xl sm:p-6">
-    <div className="mb-6">
-      <h2 className="text-2xl font-black text-white sm:text-3xl">
-        My Quotes
-      </h2>
+          <div className="rounded-md border border-white/20 bg-gradient-to-br from-blue-950 via-sky-800 to-blue-900 p-4 text-white shadow-xl sm:p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-black text-white sm:text-3xl">
+                My Quotes
+              </h2>
 
-      <p className="mt-1 text-sm font-medium text-sky-100">
-        Track all quote requests and admin responses.
-      </p>
-    </div>
+              <p className="mt-1 text-sm font-medium text-sky-100">
+                Track all quote requests and admin responses.
+              </p>
+            </div>
 
-    <div className="overflow-x-auto rounded-md border border-white/20">
-      <table className="w-full min-w-[900px] text-left text-sm">
-        <thead className="bg-white/10 text-sky-100">
-          <tr>
-            <th className="px-4 py-4">QUOTE</th>
-            <th className="px-4 py-4">PICKUP</th>
-            <th className="px-4 py-4">DELIVERY</th>
-            <th className="px-4 py-4">GOODS</th>
-            <th className="px-4 py-4">SERVICE</th>
-            <th className="px-4 py-4">PRICE</th>
-            <th className="px-4 py-4">STATUS</th>
-            <th className="px-4 py-4">DATE</th>
-          </tr>
-        </thead>
+            <div className="overflow-x-auto rounded-md border border-white/20">
+              <table className="w-full min-w-[900px] text-left text-sm">
+                <thead className="bg-white/10 text-sky-100">
+                  <tr>
+                    <th className="px-4 py-4">QUOTE</th>
+                    <th className="px-4 py-4">PICKUP</th>
+                    <th className="px-4 py-4">DELIVERY</th>
+                    <th className="px-4 py-4">GOODS</th>
+                    <th className="px-4 py-4">SERVICE</th>
+                    <th className="px-4 py-4">PRICE</th>
+                    <th className="px-4 py-4">STATUS</th>
+                    <th className="px-4 py-4">DATE</th>
+                  </tr>
+                </thead>
 
-        <tbody>
-          {quotes.length === 0 ? (
-            <tr>
-              <td
-                colSpan="8"
-                className="px-4 py-10 text-center font-semibold text-sky-100"
-              >
-                No quotes found
-              </td>
-            </tr>
-          ) : (
-            quotes.map((quote) => (
-              <tr
-                key={quote.id}
-                className="border-t border-white/10 text-sky-50"
-              >
-                <td className="px-4 py-4 font-black text-white">
-                  #{quote.id}
-                </td>
+                <tbody>
+                  {quotes.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan="8"
+                        className="px-4 py-10 text-center font-semibold text-sky-100"
+                      >
+                        No quotes found
+                      </td>
+                    </tr>
+                  ) : (
+                    quotes.map((quote) => (
+                      <tr
+                        key={quote.id}
+                        className="border-t border-white/10 text-sky-50"
+                      >
+                        <td className="px-4 py-4 font-black text-white">
+                          #{quote.id}
+                        </td>
 
-                <td className="px-4 py-4">
-                  {quote.pickupCity || "N/A"}
-                </td>
+                        <td className="px-4 py-4">
+                          {quote.pickupCity || "N/A"}
+                        </td>
 
-                <td className="px-4 py-4">
-                  {quote.deliveryCity || "N/A"}
-                </td>
+                        <td className="px-4 py-4">
+                          {quote.deliveryCity || "N/A"}
+                        </td>
 
-                <td className="px-4 py-4">
-                  {quote.goodsType || "N/A"}
-                </td>
+                        <td className="px-4 py-4">
+                          {quote.goodsType || "N/A"}
+                        </td>
 
-                <td className="px-4 py-4">
-                  {quote.preferredService || "N/A"}
-                </td>
+                        <td className="px-4 py-4">
+                          {quote.preferredService || "N/A"}
+                        </td>
 
-                <td className="px-4 py-4 font-bold text-emerald-300">
-                  {quote.estimatedPrice
-                    ? `$${quote.estimatedPrice}`
-                    : "Waiting..."}
-                </td>
+                        <td className="px-4 py-4 font-bold text-emerald-300">
+                          {quote.estimatedPrice
+                            ? `$${quote.estimatedPrice}`
+                            : "Waiting..."}
+                        </td>
 
-                <td className="px-4 py-4">
-                  <span
-                    className={`inline-flex items-center rounded px-2.5 py-1 text-xs font-medium ${getQuoteStatusColor(
-                      quote.status
-                    )}`}
-                  >
-                    {(quote.status || "pending").toUpperCase()}
-                  </span>
-                </td>
+                        <td className="px-4 py-4">
+                          <span
+                            className={`inline-flex items-center rounded px-2.5 py-1 text-xs font-medium ${getQuoteStatusColor(
+                              quote.status
+                            )}`}
+                          >
+                            {(quote.status || "pending").toUpperCase()}
+                          </span>
+                        </td>
 
-                <td className="px-4 py-4 text-sky-100">
-                  {quote.createdAt
-                    ? new Date(quote.createdAt).toLocaleDateString()
-                    : "N/A"}
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
-  </div>
-)}
+                        <td className="px-4 py-4 text-sky-100">
+                          {quote.createdAt
+                            ? new Date(quote.createdAt).toLocaleDateString()
+                            : "N/A"}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {showQuoteForm && (
-  <RequestQuoteModal
-    quoteData={quoteData}
-    setQuoteData={setQuoteData}
-    onSubmit={handleQuoteRequest}
-    onClose={() => setShowQuoteForm(false)}
-    inputClass={inputClass}
-    labelClass={labelClass}
-    modalPrimaryButton={modalPrimaryButton}
-    modalCancelButton={modalCancelButton}
-  />
-)}
+          <RequestQuoteModal
+            quoteData={quoteData}
+            setQuoteData={setQuoteData}
+            onSubmit={handleQuoteRequest}
+            onClose={() => setShowQuoteForm(false)}
+            inputClass={inputClass}
+            labelClass={labelClass}
+            modalPrimaryButton={modalPrimaryButton}
+            modalCancelButton={modalCancelButton}
+          />
+        )}
 
         {showOrderForm && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-blue-950/75 px-3 py-4 backdrop-blur-sm">
@@ -892,7 +954,10 @@ const CustomerDashboard = () => {
               </div>
 
               <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                <button onClick={handlePrint} className={`${modalPrimaryButton} flex-1`}>
+                <button
+                  onClick={handlePrint}
+                  className={`${modalPrimaryButton} flex-1`}
+                >
                   🖨️ Print Invoice
                 </button>
 

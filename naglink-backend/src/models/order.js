@@ -21,9 +21,9 @@ module.exports = (sequelize, DataTypes) => {
       });
 
       Order.hasMany(models.Expense, {
-      foreignKey: 'orderId',
-      as: 'expenses',
-    });
+        foreignKey: "orderId",
+        as: "expenses",
+      });
 
       Order.hasMany(models.OrderTruck, {
         foreignKey: "orderId",
@@ -33,6 +33,11 @@ module.exports = (sequelize, DataTypes) => {
       Order.hasMany(models.OrderLocation, {
         foreignKey: "orderId",
         as: "locations",
+      });
+
+      Order.hasMany(models.OrderStatusUpdate, {
+        foreignKey: "orderId",
+        as: "statusUpdates",
       });
 
       Order.hasMany(models.Notification, {
@@ -98,10 +103,16 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.ENUM(
           "pending",
           "approved",
+          "en_route_to_loading",
           "loading",
+          "loading_approved",
           "in_transit",
+          "arrived_at_destination",
+          "waiting_to_offload",
           "offloading",
+          "offloading_approved",
           "delivered",
+          "customer_confirmed",
           "cancelled"
         ),
         defaultValue: "pending",

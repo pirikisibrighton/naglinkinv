@@ -30,6 +30,11 @@ module.exports = (sequelize, DataTypes) => {
         as: "locationUpdates",
       });
 
+      User.hasMany(models.OrderStatusUpdate, {
+        foreignKey: "updatedBy",
+        as: "orderStatusUpdates",
+      });
+
       User.hasMany(models.Notification, {
         foreignKey: "userId",
         as: "notifications",
