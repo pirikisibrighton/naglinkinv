@@ -20,6 +20,7 @@ const iconMap = {
   trucks: Truck,
   drivers: Users,
   quotes: FileText,
+  expenses: FileText,
 };
 
 function DashboardLayout({
@@ -30,7 +31,7 @@ function DashboardLayout({
   setActiveTab,
   menuItems = [],
   title = "Dashboard",
-  globalSearch,
+  globalSearch = "",
   setGlobalSearch,
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -71,13 +72,34 @@ function DashboardLayout({
     return () => clearInterval(interval);
   }, []);
 
+  const updateSearchValue = (value) => {
+    if (typeof setGlobalSearch === "function") {
+      setGlobalSearch(value);
+    } else {
+      setLocalSearch(value);
+    }
+  };
+
+  const handleSearchChange = (e) => {
+    updateSearchValue(e.target.value);
+  };
+
+  const clearSearch = () => {
+    updateSearchValue("");
+  };
+
+  const handleTabClick = (key) => {
+    setActiveTab(key);
+    setSidebarOpen(false);
+  };
+
   const handleNotificationClick = async () => {
     const nextState = !showNotifications;
     setShowNotifications(nextState);
 
     if (nextState) {
-      fetchNotifications();
-      fetchUnreadCount();
+      await fetchNotifications();
+      await fetchUnreadCount();
     }
   };
 
@@ -97,21 +119,6 @@ function DashboardLayout({
     } catch (error) {
       console.error("Error marking notification as read:", error);
     }
-  };
-
-  const handleSearchChange = (e) => {
-    const value = e.target.value;
-
-    if (typeof setGlobalSearch === "function") {
-      setGlobalSearch(value);
-    } else {
-      setLocalSearch(value);
-    }
-  };
-
-  const handleTabClick = (key) => {
-    setActiveTab(key);
-    setSidebarOpen(false);
   };
 
   return (
@@ -211,11 +218,22 @@ function DashboardLayout({
 
               <input
                 type="text"
-                placeholder="Search orders, trucks, drivers..."
+                placeholder="Search orders, order numbers, trucks, drivers, quotes..."
                 value={searchValue}
                 onChange={handleSearchChange}
-                className="h-12 w-full rounded-2xl border-2 border-sky-200 bg-white/85 px-14 text-blue-950 outline-none backdrop-blur placeholder:text-slate-500 focus:border-blue-700"
+                className="h-12 w-full rounded-2xl border-2 border-sky-200 bg-white/85 px-14 pr-12 text-blue-950 outline-none backdrop-blur placeholder:text-slate-500 focus:border-blue-700"
               />
+
+              {searchValue && (
+                <button
+                  type="button"
+                  onClick={clearSearch}
+                  className="absolute right-4 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-blue-950 text-white transition hover:bg-red-600"
+                  title="Clear search"
+                >
+                  <X size={16} />
+                </button>
+              )}
             </div>
 
             <div className="flex items-center justify-between gap-4 lg:justify-end">
@@ -265,9 +283,7 @@ function DashboardLayout({
                             type="button"
                             onClick={() => handleMarkAsRead(notification.id)}
                             className={`block w-full border-b border-slate-100 px-4 py-3 text-left transition hover:bg-sky-50 ${
-                              notification.isRead
-                                ? "bg-white"
-                                : "bg-blue-50"
+                              notification.isRead ? "bg-white" : "bg-blue-50"
                             }`}
                           >
                             <div className="flex items-start justify-between gap-3">
@@ -318,6 +334,13 @@ function DashboardLayout({
               </div>
             </div>
           </div>
+
+          {searchValue && (
+            <div className="mt-3 rounded-xl border border-blue-200 bg-white/80 px-4 py-2 text-sm font-semibold text-blue-950 shadow-sm">
+              Searching for:{" "}
+              <span className="font-black text-blue-700">{searchValue}</span>
+            </div>
+          )}
         </header>
 
         <section className="px-3 py-6 sm:px-6 lg:px-8">{children}</section>

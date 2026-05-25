@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import toast from "react-hot-toast";
 import { motion as Motion } from "framer-motion";
 import {
@@ -13,6 +13,7 @@ import {
   MapPin,
   Eye,
   EyeOff,
+  FileText,
 } from "lucide-react";
 
 import hero1 from "../assets/images/hero/DSC05274.jpg";
@@ -41,6 +42,23 @@ const Login = () => {
 
   const { login, register } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const params = new URLSearchParams(location.search);
+  const fromQuote = params.get("quote") === "true";
+  const mode = params.get("mode");
+
+  useEffect(() => {
+    if (mode === "register") {
+      setIsLogin(false);
+    }
+  }, [mode]);
+
+  const getRedirectPath = (role) => {
+    if (role === "admin") return "/admin/dashboard";
+    if (role === "driver") return "/driver/dashboard";
+    return "/customer/dashboard";
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -49,15 +67,15 @@ const Login = () => {
     const result = await login(email, password);
 
     if (result.success) {
-      toast.success("Login successful!");
+      toast.success(
+        fromQuote
+          ? "Login successful! You can now request your quote."
+          : "Login successful!"
+      );
 
-      if (result.user.role === "admin") {
-        navigate("/admin/dashboard");
-      } else if (result.user.role === "driver") {
-        navigate("/driver/dashboard");
-      } else {
-        navigate("/customer/dashboard");
-      }
+      navigate(getRedirectPath(result.user.role), {
+        state: fromQuote ? { openQuoteForm: true } : undefined,
+      });
     } else {
       toast.error(result.error);
     }
@@ -77,8 +95,15 @@ const Login = () => {
     const result = await register(userData);
 
     if (result.success) {
-      toast.success("Registration successful!");
-      navigate("/customer/dashboard");
+      toast.success(
+        fromQuote
+          ? "Registration successful! You can now request your quote."
+          : "Registration successful!"
+      );
+
+      navigate("/customer/dashboard", {
+        state: fromQuote ? { openQuoteForm: true } : undefined,
+      });
     } else {
       toast.error(result.error);
     }
@@ -118,6 +143,18 @@ const Login = () => {
               : "Register as a customer to continue"}
           </p>
         </div>
+
+        {fromQuote && (
+          <div className="mt-5 rounded-xl border border-orange-300 bg-orange-50 px-4 py-3 text-sm font-semibold leading-6 text-orange-800">
+            <div className="flex items-start gap-3">
+              <FileText size={20} className="mt-0.5 shrink-0" />
+              <p>
+                Please login first so you can request a quote and receive the
+                admin reply directly through the system.
+              </p>
+            </div>
+          </div>
+        )}
 
         {isLogin ? (
           <>
@@ -183,7 +220,7 @@ const Login = () => {
 
             <div className="mt-3 text-center">
               <a
-                href="/track"
+                href="/track-order"
                 className="font-bold text-blue-600 hover:underline"
               >
                 Track your shipment →

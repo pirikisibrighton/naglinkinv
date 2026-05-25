@@ -37,8 +37,7 @@ function Home() {
   const services = [
     {
       title: "Freight Forwarding",
-      description:
-        "Secure and efficient cargo movement across Southern Africa.",
+      description: "Secure and efficient cargo movement across Southern Africa.",
       icon: <Truck size={40} />,
     },
     {
@@ -48,21 +47,18 @@ function Home() {
     },
     {
       title: "Cross-Border Transport",
-      description:
-        "Reliable transport and customs coordination across borders.",
+      description: "Reliable transport and customs coordination across borders.",
       icon: <Globe2 size={40} />,
     },
     {
       title: "Secure Logistics",
-      description:
-        "Professional handling with real-time shipment tracking.",
+      description: "Professional handling with real-time shipment tracking.",
       icon: <ShieldCheck size={40} />,
     },
   ];
 
   return (
     <main className="min-h-screen bg-white">
-      {/* HERO */}
       <section className="px-3 py-4 lg:px-6">
         <div className="mx-auto max-w-[1500px]">
           <div className="relative overflow-hidden rounded-3xl shadow-2xl">
@@ -105,8 +101,8 @@ function Home() {
 
                 <div className="mt-10 flex flex-col gap-4 sm:flex-row">
                   <Link
-                    to="/contact"
-                    className="inline-flex items-center gap-2 rounded-xl bg-orange-500 px-8 py-4 text-white font-bold hover:bg-orange-600"
+                    to="/login?quote=true"
+                    className="inline-flex items-center gap-2 rounded-xl bg-orange-500 px-8 py-4 font-bold text-white transition hover:bg-orange-600"
                   >
                     Get a Quote
                     <ArrowRight size={22} />
@@ -123,7 +119,6 @@ function Home() {
               </motion.div>
             </div>
 
-            {/* dots */}
             <div className="absolute bottom-6 left-1/2 flex -translate-x-1/2 gap-2">
               {images.map((_, index) => (
                 <button
@@ -139,7 +134,6 @@ function Home() {
         </div>
       </section>
 
-      {/* STATS */}
       <section className="px-6 py-16">
         <div className="mx-auto grid max-w-7xl gap-8 rounded-3xl bg-slate-100 p-10 md:grid-cols-4">
           <div className="text-center">
@@ -161,12 +155,10 @@ function Home() {
         </div>
       </section>
 
-      {/* SERVICES */}
       <section className="px-6 py-20">
         <div className="mx-auto max-w-7xl text-center">
-          <h2 className="text-4xl font-bold md:text-5xl">
-            Our Services
-          </h2>
+          <h2 className="text-4xl font-bold md:text-5xl">Our Services</h2>
+
           <p className="mt-6 text-slate-600">
             Reliable logistics solutions across Africa.
           </p>
@@ -174,7 +166,7 @@ function Home() {
           <div className="mt-12 grid gap-8 md:grid-cols-2 lg:grid-cols-4">
             {services.map((s, i) => (
               <div key={i} className="rounded-3xl border bg-white p-8 shadow">
-                <div className="text-orange-500 mb-4">{s.icon}</div>
+                <div className="mb-4 text-orange-500">{s.icon}</div>
                 <h3 className="text-xl font-bold">{s.title}</h3>
                 <p className="mt-2 text-slate-600">{s.description}</p>
               </div>
@@ -183,37 +175,34 @@ function Home() {
         </div>
       </section>
 
-      {/* ABOUT */}
       <section id="About">
         <About />
       </section>
 
-      {/* FLEET */}
       <section id="Fleet">
         <Fleet />
       </section>
 
-      {/* CTA */}
       <section className="px-6 py-20">
         <div className="mx-auto max-w-7xl rounded-3xl bg-[#0B1F3A] p-12 text-center text-white">
           <h2 className="text-4xl font-bold md:text-5xl">
             Need Reliable Freight Solutions?
           </h2>
+
           <p className="mt-6 text-slate-300">
             Partner with Naglink Investments today.
           </p>
 
           <Link
-            to="/contact"
-            className="mt-10 inline-flex items-center gap-2 rounded-xl bg-orange-500 px-8 py-4 font-bold hover:bg-orange-600"
+            to="/login?quote=true"
+            className="mt-10 inline-flex items-center gap-2 rounded-xl bg-orange-500 px-8 py-4 font-bold transition hover:bg-orange-600"
           >
-            Contact Us
+            Get Quote
             <ArrowRight size={22} />
           </Link>
         </div>
       </section>
 
-      {/* CONTACT */}
       <section id="Contact">
         <Contact />
       </section>

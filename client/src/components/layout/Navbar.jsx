@@ -27,8 +27,6 @@ function Navbar() {
       className="sticky top-0 z-50 border-b border-sky-200 bg-gradient-to-r from-[#dbeafe] via-[#bfdbfe] to-[#93c5fd] shadow-md backdrop-blur-md"
     >
       <nav className="mx-auto flex h-[68px] max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-10">
-
-        {/* LOGO */}
         <Link to="/" className="flex items-center">
           <motion.img
             whileHover={{ scale: 1.05 }}
@@ -38,7 +36,6 @@ function Navbar() {
           />
         </Link>
 
-        {/* DESKTOP MENU */}
         <div className="hidden items-center gap-6 xl:flex">
           {links.map((link) => (
             <NavLink
@@ -57,10 +54,7 @@ function Navbar() {
           ))}
         </div>
 
-        {/* RIGHT SIDE (IMPORTANT RESTORED LOGIN) */}
         <div className="hidden items-center gap-3 xl:flex">
-
-          {/* LOGIN (BACKEND CONNECTED - RESTORED) */}
           <Link
             to="/login"
             className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white/60 px-4 py-2 text-sm font-semibold text-slate-800 transition hover:border-orange-400 hover:text-orange-500"
@@ -69,7 +63,6 @@ function Navbar() {
             Login
           </Link>
 
-          {/* REGISTER (optional backend if you have it) */}
           <Link
             to="/login?mode=register"
             className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
@@ -77,9 +70,8 @@ function Navbar() {
             Register
           </Link>
 
-          {/* GET QUOTE (FIXED ROUTE) */}
           <Link
-            to="/get-quote"
+            to="/login?quote=true"
             className="rounded-lg bg-orange-500 px-5 py-2 text-sm font-semibold text-white transition hover:bg-orange-600"
           >
             Get Quote
@@ -104,7 +96,6 @@ function Navbar() {
           </a>
         </div>
 
-        {/* MOBILE BUTTON */}
         <button
           onClick={() => setOpen(!open)}
           className="rounded-lg p-2 text-slate-800 hover:bg-white/40 xl:hidden"
@@ -113,7 +104,6 @@ function Navbar() {
         </button>
       </nav>
 
-      {/* MOBILE MENU */}
       <AnimatePresence>
         {open && (
           <motion.div
@@ -123,7 +113,6 @@ function Navbar() {
             className="overflow-hidden border-t border-sky-200 bg-[#dbeafe] xl:hidden"
           >
             <div className="space-y-5 px-6 py-6">
-
               {links.map((link) => (
                 <NavLink
                   key={link.path}
@@ -141,9 +130,7 @@ function Navbar() {
                 </NavLink>
               ))}
 
-              {/* MOBILE AUTH */}
               <div className="flex flex-col gap-3 pt-4">
-
                 <Link
                   to="/login"
                   onClick={() => setOpen(false)}
@@ -154,7 +141,7 @@ function Navbar() {
                 </Link>
 
                 <Link
-                  to="/get-quote"
+                  to="/login?quote=true"
                   onClick={() => setOpen(false)}
                   className="rounded-lg bg-orange-500 px-5 py-3 text-center text-sm font-semibold text-white"
                 >
@@ -162,11 +149,11 @@ function Navbar() {
                 </Link>
               </div>
 
-              {/* SOCIALS */}
               <div className="flex justify-center gap-4 pt-3">
-
                 <a
                   href="https://wa.me/263785917545"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="flex h-11 w-11 items-center justify-center rounded-full bg-green-500 text-white"
                 >
                   <FaWhatsapp size={20} />
@@ -174,12 +161,13 @@ function Navbar() {
 
                 <a
                   href="https://www.facebook.com/share/1ChhmnGZEa/?mibextid=wwXIfr"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-600 text-white"
                 >
                   <FaFacebookF size={18} />
                 </a>
               </div>
-
             </div>
           </motion.div>
         )}

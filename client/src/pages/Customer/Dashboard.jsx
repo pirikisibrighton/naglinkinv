@@ -232,22 +232,68 @@ const CustomerDashboard = () => {
     return colors[status] || colors.pending;
   };
 
-  const getFilteredOrders = () => {
-    if (!globalSearch) return orders;
+  const normalizeText = (value) =>
+  String(value || "").toLowerCase().replaceAll("_", " ").trim();
 
-    const q = globalSearch.toLowerCase();
+ const getFilteredOrders = () => {
+  const q = normalizeText(globalSearch);
 
-    return orders.filter(
-      (order) =>
-        order.id?.toString().includes(q) ||
-        order.pickupLocation?.toLowerCase().includes(q) ||
-        order.deliveryLocation?.toLowerCase().includes(q) ||
-        order.goodsDescription?.toLowerCase().includes(q) ||
-        order.status?.toLowerCase().includes(q) ||
-        order.driver?.username?.toLowerCase().includes(q) ||
-        order.driver?.email?.toLowerCase().includes(q)
-    );
-  };
+  if (!q) return orders;
+
+  return orders.filter((order) => {
+    const searchableText = [
+      order.id,
+      order.orderNumber,
+      order.pickupLocation,
+      order.deliveryLocation,
+      order.goodsDescription,
+      order.weight,
+      order.price,
+      order.status,
+      order.driver?.username,
+      order.driver?.email,
+      order.driver?.phone,
+      ...(order.locations || []).map((location) => location.locationName),
+      ...(order.statusUpdates || []).flatMap((update) => [
+        update.title,
+        update.note,
+        update.status,
+        update.locationName,
+        update.updatedByUser?.username,
+        update.updatedByUser?.role,
+      ]),
+    ]
+      .map(normalizeText)
+      .join(" ");
+
+    return searchableText.includes(q);
+  });
+};
+
+const getFilteredQuotes = () => {
+  const q = normalizeText(globalSearch);
+
+  if (!q) return quotes;
+
+  return quotes.filter((quote) => {
+    const searchableText = [
+      quote.id,
+      quote.pickupCity,
+      quote.deliveryCity,
+      quote.goodsType,
+      quote.preferredService,
+      quote.estimatedPrice,
+      quote.status,
+      quote.order?.id,
+      quote.order?.orderNumber,
+      quote.order?.status,
+    ]
+      .map(normalizeText)
+      .join(" ");
+
+    return searchableText.includes(q);
+  });
+};
 
   const handlePrint = useReactToPrint({
     content: () => printRef.current,
@@ -255,6 +301,7 @@ const CustomerDashboard = () => {
   });
 
   const filteredOrders = getFilteredOrders();
+  const filteredQuotes = getFilteredQuotes();
 
   const totalOrders = orders.length;
 
@@ -742,7 +789,7 @@ const CustomerDashboard = () => {
                 </thead>
 
                 <tbody>
-                  {quotes.length === 0 ? (
+                  {filteredQuotes.length === 0 ? (
                     <tr>
                       <td
                         colSpan="8"
@@ -752,7 +799,7 @@ const CustomerDashboard = () => {
                       </td>
                     </tr>
                   ) : (
-                    quotes.map((quote) => (
+                    filteredQuotes.map((quote) => (
                       <tr
                         key={quote.id}
                         className="border-t border-white/10 text-sky-50"
