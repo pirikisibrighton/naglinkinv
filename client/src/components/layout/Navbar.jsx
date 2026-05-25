@@ -14,7 +14,7 @@ function Navbar() {
     { name: "Services", path: "/services" },
     { name: "Fleet", path: "/fleet" },
     { name: "Gallery", path: "/gallery" },
-    { name: "News & Updates", path: "/news" },
+    { name: "News & Updates", path: "/news-updates" },
     { name: "Track Order", path: "/track-order" },
     { name: "Contact", path: "/contact" },
   ];
