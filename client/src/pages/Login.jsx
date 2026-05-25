@@ -217,15 +217,6 @@ const Login = () => {
                 Create an account
               </button>
             </div>
-
-            <div className="mt-3 text-center">
-              <a
-                href="/track-order"
-                className="font-bold text-blue-600 hover:underline"
-              >
-                Track your shipment →
-              </a>
-            </div>
           </>
         ) : (
           <>
