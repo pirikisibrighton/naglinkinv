@@ -161,6 +161,54 @@ const [quoteReplyData, setQuoteReplyData] = useState({
     }
   };
 
+// const getFilteredOrders = () => {
+//   let filtered = [...orders];
+
+//   if (statusFilter !== "all") {
+//     filtered = filtered.filter((order) => order.status === statusFilter);
+//   }
+
+//   const finalSearchTerm = searchTerm || globalSearch;
+
+//   if (finalSearchTerm) {
+//     const q = finalSearchTerm.toLowerCase();
+
+//     filtered = filtered.filter(
+//       (order) =>
+//         order.id?.toString().includes(q) ||
+//         order.packageNumber?.toLowerCase().includes(q) ||
+//         order.customer?.username?.toLowerCase().includes(q) ||
+//         order.customer?.email?.toLowerCase().includes(q) ||
+//         order.pickupLocation?.toLowerCase().includes(q) ||
+//         order.deliveryLocation?.toLowerCase().includes(q) ||
+//         order.goodsDescription?.toLowerCase().includes(q) ||
+//         order.status?.toLowerCase().includes(q) ||
+//         order.driver?.username?.toLowerCase().includes(q) ||
+//         order.driver?.email?.toLowerCase().includes(q) ||
+//         order.truck?.truckName?.toLowerCase().includes(q) ||
+//         order.truck?.licensePlate?.toLowerCase().includes(q) ||
+//         order.locations?.some((location) =>
+//           location.locationName?.toLowerCase().includes(q)
+//         ) ||
+//         order.statusUpdates?.some((update) =>
+//           update.title?.toLowerCase().includes(q) ||
+//           update.note?.toLowerCase().includes(q) ||
+//           update.status?.toLowerCase().includes(q) ||
+//           update.updatedByUser?.username?.toLowerCase().includes(q)
+//         )
+//     );
+//   }
+
+//   return filtered;
+// };
+
+const normalizeText = (value) => {
+  return String(value || "")
+    .toLowerCase()
+    .replaceAll("_", " ")
+    .trim();
+};
+
 const getFilteredOrders = () => {
   let filtered = [...orders];
 
@@ -168,38 +216,52 @@ const getFilteredOrders = () => {
     filtered = filtered.filter((order) => order.status === statusFilter);
   }
 
-  const finalSearchTerm = searchTerm || globalSearch;
+  const finalSearchTerm = normalizeText(searchTerm || globalSearch);
 
-  if (finalSearchTerm) {
-    const q = finalSearchTerm.toLowerCase();
+  if (!finalSearchTerm) return filtered;
 
-    filtered = filtered.filter(
-      (order) =>
-        order.id?.toString().includes(q) ||
-        order.packageNumber?.toLowerCase().includes(q) ||
-        order.customer?.username?.toLowerCase().includes(q) ||
-        order.customer?.email?.toLowerCase().includes(q) ||
-        order.pickupLocation?.toLowerCase().includes(q) ||
-        order.deliveryLocation?.toLowerCase().includes(q) ||
-        order.goodsDescription?.toLowerCase().includes(q) ||
-        order.status?.toLowerCase().includes(q) ||
-        order.driver?.username?.toLowerCase().includes(q) ||
-        order.driver?.email?.toLowerCase().includes(q) ||
-        order.truck?.truckName?.toLowerCase().includes(q) ||
-        order.truck?.licensePlate?.toLowerCase().includes(q) ||
-        order.locations?.some((location) =>
-          location.locationName?.toLowerCase().includes(q)
-        ) ||
-        order.statusUpdates?.some((update) =>
-          update.title?.toLowerCase().includes(q) ||
-          update.note?.toLowerCase().includes(q) ||
-          update.status?.toLowerCase().includes(q) ||
-          update.updatedByUser?.username?.toLowerCase().includes(q)
-        )
-    );
-  }
+  return filtered.filter((order) => {
+    const searchableText = [
+      order.id,
+      order.orderNumber,
+      order.packageNumber,
+      order.pickupLocation,
+      order.deliveryLocation,
+      order.goodsDescription,
+      order.weight,
+      order.price,
+      order.status,
+      order.approvalStatus,
 
-  return filtered;
+      order.customer?.username,
+      order.customer?.email,
+      order.customer?.phone,
+      order.customer?.companyName,
+
+      order.driver?.username,
+      order.driver?.email,
+      order.driver?.phone,
+
+      order.truck?.truckName,
+      order.truck?.licensePlate,
+      order.truck?.capacity,
+
+      ...(order.locations || []).map((location) => location.locationName),
+
+      ...(order.statusUpdates || []).flatMap((update) => [
+        update.title,
+        update.note,
+        update.status,
+        update.locationName,
+        update.updatedByUser?.username,
+        update.updatedByUser?.role,
+      ]),
+    ]
+      .map(normalizeText)
+      .join(" ");
+
+    return searchableText.includes(finalSearchTerm);
+  });
 };
 
 const fetchQuotes = async () => {
@@ -1157,7 +1219,7 @@ const getFilteredDrivers = () => {
 
           <input
             type="text"
-            placeholder="Search by order ID, customer, pickup or delivery..."
+            placeholder="Search by order number, customer, pickup, delivery, truck, driver..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="h-12 w-full rounded-xl border border-white/20 bg-white px-11 text-blue-950 outline-none placeholder:text-slate-500 focus:border-sky-400"
