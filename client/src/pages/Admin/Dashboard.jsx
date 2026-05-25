@@ -81,6 +81,14 @@ const [quoteReplyData, setQuoteReplyData] = useState({
   loadingCost: "",
   offloadingCost: "",
   otherDescription: "",
+  zimTolls: "",
+  mozaTolls: "",
+  roadAccess: "",
+  vidCosts: "",
+  emaCosts: "",
+  portHealth: "",
+  portFee: "",
+  agentRunner: "",
   otherCost: "",
 });
 
@@ -153,45 +161,134 @@ const [quoteReplyData, setQuoteReplyData] = useState({
     }
   };
 
+// const getFilteredOrders = () => {
+//   let filtered = [...orders];
+
+//   if (statusFilter !== "all") {
+//     filtered = filtered.filter((order) => order.status === statusFilter);
+//   }
+
+//   const finalSearchTerm = searchTerm || globalSearch;
+
+//   if (finalSearchTerm) {
+//     const q = finalSearchTerm.toLowerCase();
+
+//     filtered = filtered.filter(
+//       (order) =>
+//         order.id?.toString().includes(q) ||
+//         order.packageNumber?.toLowerCase().includes(q) ||
+//         order.customer?.username?.toLowerCase().includes(q) ||
+//         order.customer?.email?.toLowerCase().includes(q) ||
+//         order.pickupLocation?.toLowerCase().includes(q) ||
+//         order.deliveryLocation?.toLowerCase().includes(q) ||
+//         order.goodsDescription?.toLowerCase().includes(q) ||
+//         order.status?.toLowerCase().includes(q) ||
+//         order.driver?.username?.toLowerCase().includes(q) ||
+//         order.driver?.email?.toLowerCase().includes(q) ||
+//         order.truck?.truckName?.toLowerCase().includes(q) ||
+//         order.truck?.licensePlate?.toLowerCase().includes(q) ||
+//         order.locations?.some((location) =>
+//           location.locationName?.toLowerCase().includes(q)
+//         ) ||
+//         order.statusUpdates?.some((update) =>
+//           update.title?.toLowerCase().includes(q) ||
+//           update.note?.toLowerCase().includes(q) ||
+//           update.status?.toLowerCase().includes(q) ||
+//           update.updatedByUser?.username?.toLowerCase().includes(q)
+//         )
+//     );
+//   }
+
+//   return filtered;
+// };
+
+const normalizeText = (value) => {
+  return String(value || "")
+    .toLowerCase()
+    .replaceAll("_", " ")
+    .replace(/\s+/g, " ")
+    .trim();
+};
+
+const getActiveSearch = () => normalizeText(searchTerm || globalSearch);
+
+const matchesSearch = (items, query) => {
+  if (!query) return true;
+
+  const searchableText = items
+    .flat(Infinity)
+    .map(normalizeText)
+    .filter(Boolean)
+    .join(" ");
+
+  return searchableText.includes(query);
+};
+
 const getFilteredOrders = () => {
   let filtered = [...orders];
 
   if (statusFilter !== "all") {
-    filtered = filtered.filter((order) => order.status === statusFilter);
+    if (statusFilter === "pending") {
+      filtered = filtered.filter(
+        (order) => order.approvalStatus === "pending" || order.status === "pending"
+      );
+    } else {
+      filtered = filtered.filter((order) => order.status === statusFilter);
+    }
   }
 
-  const finalSearchTerm = searchTerm || globalSearch;
+  const q = getActiveSearch();
 
-  if (finalSearchTerm) {
-    const q = finalSearchTerm.toLowerCase();
+  return filtered.filter((order) =>
+    matchesSearch(
+      [
+        order.id,
+        order.orderNumber,
+        order.packageNumber,
+        order.pickupLocation,
+        order.deliveryLocation,
+        order.goodsDescription,
+        order.weight,
+        order.price,
+        order.status,
+        order.approvalStatus,
+        order.customer?.username,
+        order.customer?.email,
+        order.customer?.phone,
+        order.customer?.companyName,
+        order.driver?.username,
+        order.driver?.email,
+        order.driver?.phone,
+        order.truck?.truckName,
+        order.truck?.licensePlate,
+        order.truck?.capacity,
+        (order.locations || []).map((location) => [
+          location.locationName,
+          location.latitude,
+          location.longitude,
+        ]),
+        (order.statusUpdates || []).map((update) => [
+          update.title,
+          update.note,
+          update.status,
+          update.locationName,
+          update.updatedByUser?.username,
+          update.updatedByUser?.role,
+        ]),
+      ],
+      q
+    )
+  );
+};
 
-    filtered = filtered.filter(
-      (order) =>
-        order.id?.toString().includes(q) ||
-        order.packageNumber?.toLowerCase().includes(q) ||
-        order.customer?.username?.toLowerCase().includes(q) ||
-        order.customer?.email?.toLowerCase().includes(q) ||
-        order.pickupLocation?.toLowerCase().includes(q) ||
-        order.deliveryLocation?.toLowerCase().includes(q) ||
-        order.goodsDescription?.toLowerCase().includes(q) ||
-        order.status?.toLowerCase().includes(q) ||
-        order.driver?.username?.toLowerCase().includes(q) ||
-        order.driver?.email?.toLowerCase().includes(q) ||
-        order.truck?.truckName?.toLowerCase().includes(q) ||
-        order.truck?.licensePlate?.toLowerCase().includes(q) ||
-        order.locations?.some((location) =>
-          location.locationName?.toLowerCase().includes(q)
-        ) ||
-        order.statusUpdates?.some((update) =>
-          update.title?.toLowerCase().includes(q) ||
-          update.note?.toLowerCase().includes(q) ||
-          update.status?.toLowerCase().includes(q) ||
-          update.updatedByUser?.username?.toLowerCase().includes(q)
-        )
-    );
-  }
-
-  return filtered;
+const getRecentOrders = () => {
+  return [...getFilteredOrders()]
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt || b.updatedAt || 0) -
+        new Date(a.createdAt || a.updatedAt || 0)
+    )
+    .slice(0, 5);
 };
 
 const fetchQuotes = async () => {
@@ -224,6 +321,14 @@ const handleOpenExpenseForm = (order) => {
     loadingCost: "",
     offloadingCost: "",
     otherDescription: "",
+    zimTolls: "",
+    mozaTolls: "",
+    roadAccess: "",
+    vidCosts: "",
+    emaCosts: "",
+    portHealth: "",
+    portFee: "",
+    agentRunner: "",
     otherCost: "",
   });
   setShowExpenseForm(true);
@@ -246,26 +351,35 @@ const handleSubmitExpense = async (e) => {
   }
 };
 
+
+
+
+
+
+
+
+
+
 const handleDownloadExpensePDF = async (orderId) => {
-  try {
-    const response = await API.get(`/orders/${orderId}/expenses/pdf`, {
-      responseType: "blob",
-    });
+  const response = await API.get(`/orders/${orderId}/expenses/pdf`, {
+    responseType: "blob",
+  });
 
-    const url = window.URL.createObjectURL(new Blob([response.data]));
-    const link = document.createElement("a");
+  const blob = new Blob([response.data], { type: "application/pdf" });
+  const url = window.URL.createObjectURL(blob);
 
-    link.href = url;
-    link.setAttribute("download", `order_${orderId}_expenses.pdf`);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `order_${orderId}_expenses.pdf`;
 
-    toast.success("Expenses PDF downloaded!");
-  } catch (error) {
-    toast.error("Error downloading expenses PDF");
-  }
+  document.body.appendChild(link);
+  link.click();
+
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
 };
+
+
 
 const getExpenseTotal = (expense) => {
   return (
@@ -275,6 +389,14 @@ const getExpenseTotal = (expense) => {
     Number(expense.driverAllowance || 0) +
     Number(expense.loadingCost || 0) +
     Number(expense.offloadingCost || 0) +
+    Number(expense.zimTolls || 0) +
+    Number(expense.mozaTolls || 0) +
+    Number(expense.roadAccess || 0) +
+    Number(expense.vidCosts || 0) +
+    Number(expense.emaCosts || 0) +
+    Number(expense.portHealth || 0) +
+    Number(expense.portFee || 0) +
+    Number(expense.agentRunner || 0) +
     Number(expense.otherCost || 0)
   );
 };
@@ -374,42 +496,119 @@ const handleSubmitQuotePrice = async (e) => {
   }
 };
 
+const getFilteredQuotes = () => {
+  const q = getActiveSearch();
+
+  return quotes.filter((quote) =>
+    matchesSearch(
+      [
+        quote.id,
+        quote.pickupCity,
+        quote.deliveryCity,
+        quote.goodsType,
+        quote.preferredService,
+        quote.estimatedPrice,
+        quote.status,
+        quote.customer?.username,
+        quote.customer?.email,
+        quote.customer?.phone,
+        quote.order?.id,
+        quote.order?.orderNumber,
+        quote.order?.status,
+      ],
+      q
+    )
+  );
+};
+
+const getFilteredExpenses = () => {
+  const q = getActiveSearch();
+
+  return expenses.filter((expense) =>
+    matchesSearch(
+      [
+        expense.id,
+        expense.orderId,
+        expense.order?.id,
+        expense.order?.orderNumber,
+        expense.order?.pickupLocation,
+        expense.order?.deliveryLocation,
+        expense.order?.customer?.username,
+        expense.order?.customer?.email,
+        expense.order?.driver?.username,
+        expense.order?.driver?.email,
+        expense.order?.truck?.truckName,
+        expense.order?.truck?.licensePlate,
+        expense.fuel,
+        expense.tollgate,
+        expense.maintenance,
+        expense.driverAllowance,
+        expense.loadingCost,
+        expense.offloadingCost,
+        expense.zimTolls,
+        expense.mozaTolls,
+        expense.roadAccess,
+        expense.vidCosts,
+        expense.emaCosts,
+        expense.portHealth,
+        expense.portFee,
+        expense.agentRunner,
+        expense.otherDescription,
+        expense.otherCost,
+        getExpenseTotal(expense),
+      ],
+      q
+    )
+  );
+};
+
 const getFilteredTrucks = () => {
-  if (!globalSearch) return trucks;
+  const q = getActiveSearch();
 
-  const q = globalSearch.toLowerCase();
-
-  return trucks.filter(
-    (truck) =>
-      truck.truckName?.toLowerCase().includes(q) ||
-      truck.licensePlate?.toLowerCase().includes(q) ||
-      truck.capacity?.toString().toLowerCase().includes(q) ||
-      truck.description?.toLowerCase().includes(q) ||
-      truck.assignedDriver?.username?.toLowerCase().includes(q) ||
-      truck.assignedDriver?.email?.toLowerCase().includes(q)
+  return trucks.filter((truck) =>
+    matchesSearch(
+      [
+        truck.id,
+        truck.truckName,
+        truck.licensePlate,
+        truck.capacity,
+        truck.description,
+        truck.isAvailable ? "available ready" : "on trip booked",
+        truck.assignedDriver?.username,
+        truck.assignedDriver?.email,
+        truck.assignedDriver?.phone,
+      ],
+      q
+    )
   );
 };
 
 const getFilteredDrivers = () => {
-  if (!globalSearch) return drivers;
+  const q = getActiveSearch();
 
-  const q = globalSearch.toLowerCase();
-
-  return drivers.filter(
-    (driver) =>
-      driver.username?.toLowerCase().includes(q) ||
-      driver.email?.toLowerCase().includes(q) ||
-      driver.phone?.toLowerCase().includes(q) ||
-      driver.address?.toLowerCase().includes(q) ||
-      driver.assignedTruck?.truckName?.toLowerCase().includes(q) ||
-      driver.assignedTruck?.licensePlate?.toLowerCase().includes(q) ||
-      driver.driverOrders?.some(
-        (order) =>
-          order.id?.toString().includes(q) ||
-          order.status?.toLowerCase().includes(q) ||
-          order.pickupLocation?.toLowerCase().includes(q) ||
-          order.deliveryLocation?.toLowerCase().includes(q)
-      )
+  return drivers.filter((driver) =>
+    matchesSearch(
+      [
+        driver.id,
+        driver.username,
+        driver.email,
+        driver.phone,
+        driver.address,
+        driver.isAvailable ? "available ready" : "on trip booked",
+        driver.assignedTruck?.truckName,
+        driver.assignedTruck?.licensePlate,
+        driver.assignedTruck?.capacity,
+        (driver.driverOrders || []).map((order) => [
+          order.id,
+          order.orderNumber,
+          order.status,
+          order.pickupLocation,
+          order.deliveryLocation,
+          order.customer?.username,
+        ]),
+      ],
+      q
+    )
   );
 };
 
@@ -702,6 +901,34 @@ const getFilteredDrivers = () => {
   const cancelButton =
     "rounded-2xl border-2 border-sky-200 bg-white px-5 py-3 font-bold text-blue-950 transition hover:bg-sky-100";
 
+  const formatCurrency = (value) => {
+    const amount = Number(value || 0);
+
+    return `$${amount.toFixed(2)}`;
+  };
+
+  const weeklyRevenue = (stats?.finances?.weeklyRevenue || stats?.finances?.revenueByWeek || []).map(
+    (week, index) => ({
+      ...week,
+      label: week.label || week.week || `Week ${index + 1}`,
+      shortLabel: week.shortLabel || week.week || week.label || `W${index + 1}`,
+      orders: week.orders || 0,
+    })
+  );
+  const highestRevenueWeekRaw = stats?.finances?.highestRevenueWeek || null;
+  const highestRevenueWeek = highestRevenueWeekRaw
+    ? {
+        ...highestRevenueWeekRaw,
+        label: highestRevenueWeekRaw.label || highestRevenueWeekRaw.week,
+        shortLabel: highestRevenueWeekRaw.shortLabel || highestRevenueWeekRaw.week,
+        orders: highestRevenueWeekRaw.orders || 0,
+      }
+    : null;
+  const maxWeeklyRevenue = Math.max(
+    ...weeklyRevenue.map((week) => Number(week.revenue || 0)),
+    1
+  );
+
   return (
     <DashboardLayout
       user={user}
@@ -761,16 +988,6 @@ const getFilteredDrivers = () => {
           bgColor: "bg-purple-500/10",
           textColor: "text-purple-300",
         },
-        {
-          title: "Revenue",
-          value: `$${stats.finances?.totalRevenue?.toFixed(2) || 0}`,
-          subtitle: `Pending: $${
-            stats.finances?.pendingPayments?.toFixed(2) || 0
-          }`,
-          icon: DollarSign,
-          bgColor: "bg-orange-500/10",
-          textColor: "text-orange-300",
-        },
       ].map((card, index) => {
         const Icon = card.icon;
 
@@ -803,6 +1020,90 @@ const getFilteredDrivers = () => {
           </div>
         );
       })}
+
+      <div className="rounded-md border border-white/20 bg-gradient-to-br from-blue-950 via-sky-800 to-blue-900 text-white shadow-xl transition duration-200 hover:border-white/40 sm:col-span-2 xl:col-span-1">
+        <div className="p-6 py-5">
+          <div className="mb-4 flex items-start justify-between gap-4">
+            <div>
+              <p className="mb-1 text-sm font-medium text-sky-100">
+                Revenue
+              </p>
+
+              <p className="text-3xl font-black text-white sm:text-4xl">
+                {formatCurrency(stats.finances?.totalRevenue)}
+              </p>
+
+              <p className="mt-1 text-xs font-medium text-sky-200">
+                Pending: {formatCurrency(stats.finances?.pendingPayments)}
+              </p>
+            </div>
+
+            <div className="rounded-xl bg-orange-500/10 p-3">
+              <DollarSign size={22} className="text-orange-300" />
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-white/10 bg-white/10 p-3">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <p className="text-xs font-bold uppercase tracking-wide text-sky-100">
+                Last 5 Weeks
+              </p>
+
+              <p className="text-[11px] font-semibold text-orange-200">
+                Highest: {highestRevenueWeek?.label || "N/A"}
+              </p>
+            </div>
+
+            <div className="flex h-24 items-end gap-2">
+              {weeklyRevenue.length > 0 ? (
+                weeklyRevenue.map((week, index) => {
+                  const barHeight = Math.max(
+                    8,
+                    (Number(week.revenue || 0) / maxWeeklyRevenue) * 100
+                  );
+
+                  const isHighest =
+                    highestRevenueWeek && week.label === highestRevenueWeek.label;
+
+                  return (
+                    <div
+                      key={`${week.label}-${index}`}
+                      className="flex flex-1 flex-col items-center gap-2"
+                      title={`${week.label}: ${formatCurrency(week.revenue)}`}
+                    >
+                      <div className="flex h-16 w-full items-end rounded-lg bg-white/10 px-1">
+                        <div
+                          className={`w-full rounded-md ${
+                            isHighest
+                              ? "bg-orange-300"
+                              : "bg-gradient-to-t from-sky-400 to-white"
+                          }`}
+                          style={{ height: `${barHeight}%` }}
+                        />
+                      </div>
+
+                      <span className="text-[10px] font-bold text-sky-100">
+                        {week.shortLabel || `W${index + 1}`}
+                      </span>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-sky-200">
+                  No revenue data yet
+                </div>
+              )}
+            </div>
+
+            <div className="mt-3 flex items-center justify-between text-[11px] font-semibold text-sky-200">
+              <span>
+                Best: {formatCurrency(highestRevenueWeek?.revenue)}
+              </span>
+              <span>{highestRevenueWeek?.orders || 0} orders</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
@@ -914,13 +1215,13 @@ const getFilteredDrivers = () => {
             </thead>
 
             <tbody>
-              {orders.slice(0, 5).length > 0 ? (
-  orders.slice(0, 5).map((order) => (
+              {getRecentOrders().length > 0 ? (
+  getRecentOrders().map((order) => (
                  <tr
   key={order.id}
   className="border-t border-white/10 text-sky-50 transition hover:bg-white/10"
 >
-  <td className="px-4 py-4 font-black text-white">#{order.id}</td>
+  <td className="px-4 py-4 font-black text-white">{order.orderNumber || `#${order.id}`}</td>
 
   <td className="px-4 py-4">
     {order.customer?.username || "N/A"}
@@ -1072,7 +1373,7 @@ const getFilteredDrivers = () => {
 
           <input
             type="text"
-            placeholder="Search by order ID, customer, pickup or delivery..."
+            placeholder="Search by order number, customer, pickup, delivery, truck, driver..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="h-12 w-full rounded-xl border border-white/20 bg-white px-11 text-blue-950 outline-none placeholder:text-slate-500 focus:border-sky-400"
@@ -1083,6 +1384,7 @@ const getFilteredDrivers = () => {
           onClick={() => {
             setStatusFilter("all");
             setSearchTerm("");
+            setGlobalSearch("");
           }}
           className="flex items-center justify-center gap-2 rounded-lg border border-white px-5 py-2 text-sm font-semibold text-white transition hover:border-blue-500 hover:bg-blue-700 hover:text-white"
         >
@@ -1115,7 +1417,7 @@ const getFilteredDrivers = () => {
             {getFilteredOrders().length === 0 ? (
               <tr>
                 <td
-                  colSpan="12"
+                  colSpan="13"
                   className="px-4 py-10 text-center font-semibold text-sky-100"
                 >
                   No orders found
@@ -1128,7 +1430,7 @@ const getFilteredDrivers = () => {
                   className="border-t border-white/10 text-sky-50 transition hover:bg-white/10"
                 >
                   <td className="px-4 py-4 font-black text-white">
-                    #{order.id}
+                    {order.orderNumber || `#${order.id}`}
                     {order.packageNumber && (
                       <p className="mt-1 text-xs font-medium text-sky-200">
                         Package: {order.packageNumber}
@@ -1390,7 +1692,7 @@ const getFilteredDrivers = () => {
         </thead>
 
         <tbody>
-          {quotes.length === 0 ? (
+          {getFilteredQuotes().length === 0 ? (
             <tr>
               <td
                 colSpan="9"
@@ -1400,7 +1702,7 @@ const getFilteredDrivers = () => {
               </td>
             </tr>
           ) : (
-            quotes.map((quote) => (
+            getFilteredQuotes().map((quote) => (
               <tr
                 key={quote.id}
                 onClick={() => handleOpenQuote(quote)}
@@ -1480,7 +1782,7 @@ const getFilteredDrivers = () => {
     </div>
 
     <div className="overflow-x-auto rounded-md border border-white/20">
-      <table className="w-full min-w-[1300px] text-left text-sm">
+      <table className="w-full min-w-[2200px] text-left text-sm">
         <thead className="bg-white/10 text-sky-100">
           <tr>
             <th className="px-4 py-4">ORDER</th>
@@ -1491,6 +1793,14 @@ const getFilteredDrivers = () => {
             <th className="px-4 py-4">TOLLGATE</th>
             <th className="px-4 py-4">MAINTENANCE</th>
             <th className="px-4 py-4">ALLOWANCE</th>
+            <th className="px-4 py-4">ZIM TOLLS</th>
+            <th className="px-4 py-4">MOZA TOLLS</th>
+            <th className="px-4 py-4">ROAD ACCESS</th>
+            <th className="px-4 py-4">VID</th>
+            <th className="px-4 py-4">EMA</th>
+            <th className="px-4 py-4">PORT HEALTH</th>
+            <th className="px-4 py-4">PORT FEE</th>
+            <th className="px-4 py-4">AGENT/RUNNER</th>
             <th className="px-4 py-4">OTHER</th>
             <th className="px-4 py-4">TOTAL</th>
             <th className="px-4 py-4">PDF</th>
@@ -1498,23 +1808,23 @@ const getFilteredDrivers = () => {
         </thead>
 
         <tbody>
-          {expenses.length === 0 ? (
+          {getFilteredExpenses().length === 0 ? (
             <tr>
               <td
-                colSpan="11"
+                colSpan="19"
                 className="px-4 py-10 text-center font-semibold text-sky-100"
               >
                 No expenses found
               </td>
             </tr>
           ) : (
-            expenses.map((expense) => (
+            getFilteredExpenses().map((expense) => (
               <tr
                 key={expense.id}
                 className="border-t border-white/10 text-sky-50 transition hover:bg-white/10"
               >
                 <td className="px-4 py-4 font-black text-white">
-                  #{expense.order?.id || expense.orderId}
+                  {expense.order?.orderNumber || `#${expense.order?.id || expense.orderId}`}
                 </td>
 
                 <td className="px-4 py-4">
@@ -1531,6 +1841,14 @@ const getFilteredDrivers = () => {
 
                 <td className="px-4 py-4">${expense.fuel || 0}</td>
                 <td className="px-4 py-4">${expense.tollgate || 0}</td>
+                <td className="px-4 py-4">${expense.zimTolls || 0}</td>
+                <td className="px-4 py-4">${expense.mozaTolls || 0}</td>
+                <td className="px-4 py-4">${expense.roadAccess || 0}</td>
+                <td className="px-4 py-4">${expense.vidCosts || 0}</td>
+                <td className="px-4 py-4">${expense.emaCosts || 0}</td>
+                <td className="px-4 py-4">${expense.portHealth || 0}</td>
+                <td className="px-4 py-4">${expense.portFee || 0}</td>
+                <td className="px-4 py-4">${expense.agentRunner || 0}</td>
                 <td className="px-4 py-4">${expense.maintenance || 0}</td>
                 <td className="px-4 py-4">${expense.driverAllowance || 0}</td>
                 <td className="px-4 py-4">${expense.otherCost || 0}</td>
@@ -1792,7 +2110,7 @@ const getFilteredDrivers = () => {
                     </p>
 
                     <p className="mt-1 font-bold text-white">
-                      {activeOrder ? `#${activeOrder.id}` : "None"}
+                      {activeOrder ? activeOrder.orderNumber || `#${activeOrder.id}` : "None"}
                     </p>
                   </div>
                 </div>
@@ -1845,7 +2163,7 @@ const getFilteredDrivers = () => {
                   {activeOrder ? (
                     <div className="mt-2 text-sm text-sky-100">
                       <p className="font-bold text-white">
-                        Order #{activeOrder.id}
+                        Order {activeOrder.orderNumber || `#${activeOrder.id}`}
                       </p>
 
                       <p>
@@ -2513,6 +2831,14 @@ const getFilteredDrivers = () => {
             ["loadingCost", "Loading Cost"],
             ["offloadingCost", "Offloading Cost"],
             ["otherCost", "Other Cost"],
+            ["zimTolls", "Zim Tolls"],
+            ["mozaTolls", "Moza Tolls"],
+            ["roadAccess", "Road Access"],
+            ["vidCosts", "VID Costs"],
+            ["emaCosts", "EMA Costs"],
+            ["portHealth", "Port Health"],
+            ["portFee", "Port Fee"],
+            ["agentRunner", "Agent / Runner"],
           ].map(([key, label]) => (
             <div key={key}>
               <label className={labelClass}>{label}</label>

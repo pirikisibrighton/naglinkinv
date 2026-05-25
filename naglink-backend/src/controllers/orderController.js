@@ -7,12 +7,38 @@ const OrderLocation = db.OrderLocation;
 const OrderStatusUpdate = db.OrderStatusUpdate;
 const Expense = db.Expense;
 
+const { Op } = require("sequelize");
 const PDFDocument = require("pdfkit");
 const createNotification = require("../utils/createNotification");
+
+const generateOrderNumber = () => {
+  const datePart = new Date().toISOString().slice(0, 10).replaceAll("-", "");
+
+  const randomPart = Math.random()
+    .toString(36)
+    .substring(2, 8)
+    .toUpperCase();
+
+  return `ORD-${datePart}-${randomPart}`;
+};
+
+const buildOrderLookupWhere = (value) => {
+  const cleanValue = String(value || "").trim();
+
+  const conditions = [{ orderNumber: cleanValue }];
+
+  if (!Number.isNaN(Number(cleanValue))) {
+    conditions.push({ id: Number(cleanValue) });
+  }
+
+  return { [Op.or]: conditions };
+};
 
 const statusUpdateInclude = {
   model: OrderStatusUpdate,
   as: "statusUpdates",
+  separate: true,
+  order: [["createdAt", "DESC"]],
   include: [
     {
       model: User,
@@ -20,8 +46,6 @@ const statusUpdateInclude = {
       attributes: ["username", "role"],
     },
   ],
-  separate: true,
-  order: [["createdAt", "DESC"]],
 };
 
 const locationInclude = {
@@ -36,8 +60,17 @@ const createOrder = async (req, res) => {
     const { pickupLocation, deliveryLocation, goodsDescription, weight } =
       req.body;
 
+    let orderNumber;
+    let exists = true;
+
+    while (exists) {
+      orderNumber = generateOrderNumber();
+      exists = await Order.findOne({ where: { orderNumber } });
+    }
+
     const order = await Order.create({
       customerId: req.userId,
+      orderNumber,
       pickupLocation,
       deliveryLocation,
       goodsDescription,
@@ -50,7 +83,7 @@ const createOrder = async (req, res) => {
       roleTarget: "admin",
       orderId: order.id,
       title: "New Order Submitted",
-      message: `Order #${order.id} has been submitted and is waiting for approval.`,
+      message: `Order ${order.orderNumber} has been submitted and is waiting for approval.`,
       type: "order_created",
     });
 
@@ -91,6 +124,8 @@ const getMyOrders = async (req, res) => {
 
     res.json({ orders });
   } catch (error) {
+    console.error("Get my orders error:", error);
+
     res.status(500).json({
       message: "Error fetching orders",
       error: error.message,
@@ -102,7 +137,8 @@ const getOrderById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const order = await Order.findByPk(id, {
+    const order = await Order.findOne({
+      where: buildOrderLookupWhere(id),
       include: [
         {
           model: User,
@@ -137,6 +173,8 @@ const getOrderById = async (req, res) => {
 
     res.json({ order });
   } catch (error) {
+    console.error("Get order by id error:", error);
+
     res.status(500).json({
       message: "Error fetching order",
       error: error.message,
@@ -149,7 +187,9 @@ const approveOrder = async (req, res) => {
     const { id } = req.params;
     const { price, driverId, departureTime, forecastedArrival } = req.body;
 
-    const order = await Order.findByPk(id);
+    const order = await Order.findOne({
+      where: buildOrderLookupWhere(id),
+    });
 
     if (!order) {
       return res.status(404).json({ message: "Order not found" });
@@ -213,7 +253,7 @@ const approveOrder = async (req, res) => {
       roleTarget: "customer",
       orderId: order.id,
       title: "Order Approved",
-      message: `Your order #${order.id} has been approved. Price: $${price}.`,
+      message: `Your order ${order.orderNumber || `#${order.id}`} has been approved. Price: $${price}.`,
       type: "order_approved",
     });
 
@@ -222,7 +262,7 @@ const approveOrder = async (req, res) => {
       roleTarget: "driver",
       orderId: order.id,
       title: "New Order Assigned",
-      message: `You have been assigned order #${order.id}.`,
+      message: `You have been assigned order ${order.orderNumber || `#${order.id}`}.`,
       type: "order_assigned",
     });
 
@@ -232,6 +272,8 @@ const approveOrder = async (req, res) => {
       assignedTruck,
     });
   } catch (error) {
+    console.error("Approve order error:", error);
+
     res.status(500).json({
       message: "Error approving order",
       error: error.message,
@@ -265,6 +307,8 @@ const getAllOrders = async (req, res) => {
 
     res.json({ orders });
   } catch (error) {
+    console.error("Get all orders error:", error);
+
     res.status(500).json({
       message: "Error fetching orders",
       error: error.message,
@@ -277,7 +321,9 @@ const updateOrderStatus = async (req, res) => {
     const { id } = req.params;
     const { status, note } = req.body;
 
-    const order = await Order.findByPk(id);
+    const order = await Order.findOne({
+      where: buildOrderLookupWhere(id),
+    });
 
     if (!order) {
       return res.status(404).json({ message: "Order not found" });
@@ -327,7 +373,7 @@ const updateOrderStatus = async (req, res) => {
         roleTarget: "customer",
         orderId: order.id,
         title: "Order Status Updated",
-        message: `Order #${order.id} status changed to ${status.replaceAll(
+        message: `Order ${order.orderNumber || `#${order.id}`} status changed to ${status.replaceAll(
           "_",
           " "
         )}.`,
@@ -340,7 +386,7 @@ const updateOrderStatus = async (req, res) => {
         roleTarget: "admin",
         orderId: order.id,
         title: "Order Status Updated",
-        message: `Order #${order.id} was updated to ${status.replaceAll(
+        message: `Order ${order.orderNumber || `#${order.id}`} was updated to ${status.replaceAll(
           "_",
           " "
         )}.`,
@@ -354,7 +400,7 @@ const updateOrderStatus = async (req, res) => {
         roleTarget: "driver",
         orderId: order.id,
         title: "Order Status Updated",
-        message: `Order #${order.id} was updated to ${status.replaceAll(
+        message: `Order ${order.orderNumber || `#${order.id}`} was updated to ${status.replaceAll(
           "_",
           " "
         )}.`,
@@ -383,6 +429,8 @@ const updateOrderStatus = async (req, res) => {
       order,
     });
   } catch (error) {
+    console.error("Update order status error:", error);
+
     res.status(500).json({
       message: "Error updating order status",
       error: error.message,
@@ -394,16 +442,8 @@ const trackOrder = async (req, res) => {
   try {
     const { trackingNumber } = req.params;
 
-    const order = await Order.findByPk(trackingNumber, {
-      attributes: [
-        "id",
-        "status",
-        "pickupLocation",
-        "deliveryLocation",
-        "departureTime",
-        "forecastedArrival",
-        "updatedAt",
-      ],
+    const order = await Order.findOne({
+      where: buildOrderLookupWhere(trackingNumber),
       include: [
         {
           model: Truck,
@@ -415,8 +455,25 @@ const trackOrder = async (req, res) => {
           as: "driver",
           attributes: ["username", "email", "phone"],
         },
-        locationInclude,
-        statusUpdateInclude,
+        {
+          model: OrderLocation,
+          as: "locations",
+          separate: true,
+          order: [["createdAt", "DESC"]],
+        },
+        {
+          model: OrderStatusUpdate,
+          as: "statusUpdates",
+          separate: true,
+          order: [["createdAt", "DESC"]],
+          include: [
+            {
+              model: User,
+              as: "updatedByUser",
+              attributes: ["username", "role"],
+            },
+          ],
+        },
       ],
     });
 
@@ -424,8 +481,18 @@ const trackOrder = async (req, res) => {
       return res.status(404).json({ message: "Order not found" });
     }
 
-    res.json({ tracking: order });
+    const plainOrder = order.get({ plain: true });
+
+    res.json({
+      tracking: {
+        ...plainOrder,
+        locations: plainOrder.locations || [],
+        statusUpdates: plainOrder.statusUpdates || [],
+      },
+    });
   } catch (error) {
+    console.error("Track order error:", error);
+
     res.status(500).json({
       message: "Error tracking order",
       error: error.message,
@@ -460,6 +527,8 @@ const getExpenses = async (req, res) => {
 
     res.json({ expenses });
   } catch (error) {
+    console.error("Get expenses error:", error);
+
     res.status(500).json({
       message: "Error fetching expenses",
       error: error.message,
@@ -480,9 +549,19 @@ const addOrderExpenses = async (req, res) => {
       offloadingCost,
       otherDescription,
       otherCost,
+      zimTolls,
+      mozaTolls,
+      roadAccess,
+      vidCosts,
+      emaCosts,
+      portHealth,
+      portFee,
+      agentRunner,
     } = req.body;
 
-    const order = await Order.findByPk(id);
+    const order = await Order.findOne({
+      where: buildOrderLookupWhere(id),
+    });
 
     if (!order) {
       return res.status(404).json({ message: "Order not found" });
@@ -495,10 +574,19 @@ const addOrderExpenses = async (req, res) => {
       Number(driverAllowance || 0) +
       Number(loadingCost || 0) +
       Number(offloadingCost || 0) +
-      Number(otherCost || 0);
+      Number(otherCost || 0) +
+      Number(zimTolls || 0) +
+      Number(mozaTolls || 0) +
+      Number(roadAccess || 0) +
+      Number(vidCosts || 0) +
+      Number(emaCosts || 0) +
+      Number(portHealth || 0) +
+      Number(portFee || 0) +
+      Number(agentRunner || 0);
+
 
     const expense = await Expense.create({
-      orderId: id,
+      orderId: order.id,
       fuel: fuel || 0,
       tollgate: tollgate || 0,
       maintenance: maintenance || 0,
@@ -507,7 +595,16 @@ const addOrderExpenses = async (req, res) => {
       offloadingCost: offloadingCost || 0,
       otherDescription,
       otherCost: otherCost || 0,
+      zimTolls: zimTolls || 0,
+      mozaTolls: mozaTolls || 0,
+      roadAccess: roadAccess || 0,
+      vidCosts: vidCosts || 0,
+      emaCosts: emaCosts || 0,
+      portHealth: portHealth || 0,
+      portFee: portFee || 0,
+      agentRunner: agentRunner || 0,
       totalAmount,
+
     });
 
     res.status(201).json({
@@ -515,6 +612,8 @@ const addOrderExpenses = async (req, res) => {
       expense,
     });
   } catch (error) {
+    console.error("Add expenses error:", error);
+
     res.status(500).json({
       message: "Error adding expenses",
       error: error.message,
@@ -522,12 +621,114 @@ const addOrderExpenses = async (req, res) => {
   }
 };
 
+// const downloadOrderExpensesPDF = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+
+//     const expenses = await Expense.findAll({
+//       where: { orderId: id },
+//       include: [
+//         {
+//           model: Order,
+//           as: "order",
+//           include: [
+//             {
+//               model: User,
+//               as: "customer",
+//               attributes: ["username", "email", "phone"],
+//             },
+//             {
+//               model: User,
+//               as: "driver",
+//               attributes: ["username", "email", "phone"],
+//             },
+//             { model: Truck, as: "truck" },
+//           ],
+//         },
+//       ],
+//     });
+
+//     if (!expenses.length) {
+//       return res.status(404).json({
+//         message: "No expenses found for this order",
+//       });
+//     }
+
+//     const order = expenses[0].order;
+//     const doc = new PDFDocument({ margin: 50 });
+
+//     res.setHeader("Content-Type", "application/pdf");
+//     res.setHeader(
+//       "Content-Disposition",
+//       `attachment; filename=order_${id}_expenses.pdf`
+//     );
+
+//     doc.pipe(res);
+
+//     doc.fontSize(22).text("Order Expenses Report", { align: "center" });
+//     doc.moveDown();
+
+//     doc.fontSize(12).text(`Order: #${order.id}`);
+//     doc.text(`Customer: ${order.customer?.username || "N/A"}`);
+//     doc.text(`Driver: ${order.driver?.username || "N/A"}`);
+//     doc.text(`Truck: ${order.truck?.truckName || "N/A"}`);
+//     doc.text(
+//       `Route: ${order.pickupLocation || "N/A"} to ${
+//         order.deliveryLocation || "N/A"
+//       }`
+//     );
+//     doc.moveDown();
+
+//     let grandTotal = 0;
+
+//     expenses.forEach((expense, index) => {
+//       grandTotal += Number(expense.totalAmount || 0);
+
+//       doc.fontSize(14).text(`Expense Entry ${index + 1}`, {
+//         underline: true,
+//       });
+//       doc.fontSize(11).text(`Fuel: $${expense.fuel || 0}`);
+//       doc.text(`Tollgate: $${expense.tollgate || 0}`);
+//       doc.text(`Maintenance: $${expense.maintenance || 0}`);
+//       doc.text(`Driver Allowance: $${expense.driverAllowance || 0}`);
+//       doc.text(`Loading Cost: $${expense.loadingCost || 0}`);
+//       doc.text(`Offloading Cost: $${expense.offloadingCost || 0}`);
+//       doc.text(
+//         `Other: ${expense.otherDescription || "N/A"} - $${
+//           expense.otherCost || 0
+//         }`
+//       );
+//       doc.text(`Total: $${Number(expense.totalAmount || 0).toFixed(2)}`);
+//       doc.moveDown();
+//     });
+
+//     doc.fontSize(16).text(`Grand Total: $${grandTotal.toFixed(2)}`, {
+//       align: "right",
+//     });
+
+//     doc.end();
+//   } catch (error) {
+//     res.status(500).json({
+//       message: "Error generating PDF",
+//       error: error.message,
+//     });
+//   }
+// };
+
 const downloadOrderExpensesPDF = async (req, res) => {
   try {
     const { id } = req.params;
 
+    const order = await Order.findOne({
+      where: buildOrderLookupWhere(id),
+    });
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
     const expenses = await Expense.findAll({
-      where: { orderId: id },
+      where: { orderId: order.id },
       include: [
         {
           model: Order,
@@ -555,13 +756,13 @@ const downloadOrderExpensesPDF = async (req, res) => {
       });
     }
 
-    const order = expenses[0].order;
+    const reportOrder = expenses[0].order;
     const doc = new PDFDocument({ margin: 50 });
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename=order_${id}_expenses.pdf`
+      `attachment; filename=order_${reportOrder.orderNumber || reportOrder.id}_expenses.pdf`
     );
 
     doc.pipe(res);
@@ -569,13 +770,15 @@ const downloadOrderExpensesPDF = async (req, res) => {
     doc.fontSize(22).text("Order Expenses Report", { align: "center" });
     doc.moveDown();
 
-    doc.fontSize(12).text(`Order: #${order.id}`);
-    doc.text(`Customer: ${order.customer?.username || "N/A"}`);
-    doc.text(`Driver: ${order.driver?.username || "N/A"}`);
-    doc.text(`Truck: ${order.truck?.truckName || "N/A"}`);
+    doc.fontSize(12).text(
+      `Order: ${reportOrder.orderNumber || `#${reportOrder.id}`}`
+    );
+    doc.text(`Customer: ${reportOrder.customer?.username || "N/A"}`);
+    doc.text(`Driver: ${reportOrder.driver?.username || "N/A"}`);
+    doc.text(`Truck: ${reportOrder.truck?.truckName || "N/A"}`);
     doc.text(
-      `Route: ${order.pickupLocation || "N/A"} to ${
-        order.deliveryLocation || "N/A"
+      `Route: ${reportOrder.pickupLocation || "N/A"} to ${
+        reportOrder.deliveryLocation || "N/A"
       }`
     );
     doc.moveDown();
@@ -588,8 +791,17 @@ const downloadOrderExpensesPDF = async (req, res) => {
       doc.fontSize(14).text(`Expense Entry ${index + 1}`, {
         underline: true,
       });
+
       doc.fontSize(11).text(`Fuel: $${expense.fuel || 0}`);
       doc.text(`Tollgate: $${expense.tollgate || 0}`);
+      doc.text(`Zim Tolls: $${expense.zimTolls || 0}`);
+      doc.text(`Moza Tolls: $${expense.mozaTolls || 0}`);
+      doc.text(`Road Access: $${expense.roadAccess || 0}`);
+      doc.text(`VID Costs: $${expense.vidCosts || 0}`);
+      doc.text(`EMA Costs: $${expense.emaCosts || 0}`);
+      doc.text(`Port Health: $${expense.portHealth || 0}`);
+      doc.text(`Port Fee: $${expense.portFee || 0}`);
+      doc.text(`Agent / Runner: $${expense.agentRunner || 0}`);
       doc.text(`Maintenance: $${expense.maintenance || 0}`);
       doc.text(`Driver Allowance: $${expense.driverAllowance || 0}`);
       doc.text(`Loading Cost: $${expense.loadingCost || 0}`);
@@ -599,6 +811,7 @@ const downloadOrderExpensesPDF = async (req, res) => {
           expense.otherCost || 0
         }`
       );
+
       doc.text(`Total: $${Number(expense.totalAmount || 0).toFixed(2)}`);
       doc.moveDown();
     });
@@ -609,6 +822,8 @@ const downloadOrderExpensesPDF = async (req, res) => {
 
     doc.end();
   } catch (error) {
+    console.error("Generate expense PDF error:", error);
+
     res.status(500).json({
       message: "Error generating PDF",
       error: error.message,

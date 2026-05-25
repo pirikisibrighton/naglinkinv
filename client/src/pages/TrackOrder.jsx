@@ -9,6 +9,8 @@ import {
   Phone,
   Clock3,
   AlertCircle,
+  Route,
+  Navigation,
 } from "lucide-react";
 
 function TrackOrder() {
@@ -20,39 +22,29 @@ function TrackOrder() {
   const API_BASE_URL =
     import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
-  const statusOrder = [
-    "approved",
-    "loading",
-    "in_transit",
-    "offloading",
-    "delivered",
-  ];
-
   const getStatusLabel = (status) => {
     const labels = {
       pending: "Pending Approval",
       approved: "Order Approved",
+      en_route_to_loading: "En Route To Loading",
       loading: "Loading",
+      loading_approved: "Loading Approved",
       in_transit: "In Transit",
+      arrived_at_destination: "Arrived At Destination",
+      waiting_to_offload: "Waiting To Offload",
       offloading: "Offloading",
+      offloading_approved: "Offloading Approved",
       delivered: "Delivered",
+      customer_confirmed: "Customer Confirmed",
       cancelled: "Cancelled",
     };
 
     return labels[status] || "Pending";
   };
 
-  const getTrackingSteps = (status) => {
-    const currentIndex = statusOrder.indexOf(status);
-
-    return [
-      { title: "Order Approved", status: currentIndex >= 0 },
-      { title: "Truck Assigned", status: currentIndex >= 0 },
-      { title: "Loading", status: currentIndex >= 1 },
-      { title: "In Transit", status: currentIndex >= 2 },
-      { title: "Offloading", status: currentIndex >= 3 },
-      { title: "Delivered", status: status === "delivered" },
-    ];
+  const formatStatus = (status) => {
+    if (!status) return "UPDATE";
+    return status.replaceAll("_", " ").toUpperCase();
   };
 
   const handleTrackOrder = async (e) => {
@@ -71,14 +63,18 @@ function TrackOrder() {
       setTrackingData(null);
 
       const response = await fetch(`${API_BASE_URL}/orders/track/${orderNumber}`);
-
       const data = await response.json();
 
       if (!response.ok) {
         throw new Error(data.message || "Order not found.");
       }
 
-      setTrackingData(data.tracking);
+      console.log("TRACKING RESPONSE:", data.tracking);
+      setTrackingData({
+        ...data.tracking,
+        locations: data.tracking?.locations || [],
+        statusUpdates: data.tracking?.statusUpdates || [],
+      });
     } catch (error) {
       console.error("Tracking error:", error);
       setErrorMessage(
@@ -88,8 +84,6 @@ function TrackOrder() {
       setLoading(false);
     }
   };
-
-  const trackingSteps = getTrackingSteps(trackingData?.status);
 
   return (
     <main className="min-h-screen overflow-hidden bg-gradient-to-r from-blue-950 via-sky-300 to-white pb-16">
@@ -113,8 +107,8 @@ function TrackOrder() {
               </h1>
 
               <p className="mt-4 max-w-2xl text-sm font-medium leading-7 text-slate-100 sm:text-lg md:leading-8">
-                Monitor your order status from approval, loading, transit,
-                offloading, and final delivery.
+                Monitor location updates, journey updates, truck assignment,
+                and final delivery progress.
               </p>
             </motion.div>
           </div>
@@ -133,10 +127,13 @@ function TrackOrder() {
               Enter Order Number
             </h2>
 
-            <form onSubmit={handleTrackOrder} className="flex flex-col gap-4 md:flex-row">
+            <form
+              onSubmit={handleTrackOrder}
+              className="flex flex-col gap-4 md:flex-row"
+            >
               <input
                 type="text"
-                placeholder="e.g 1 or 25"
+                placeholder="e.g ORD-20260525-X7K9Q3"
                 value={trackingNumber}
                 onChange={(e) => setTrackingNumber(e.target.value)}
                 className="h-14 w-full rounded-2xl border-[3px] border-sky-200 bg-white/80 px-4 text-base outline-none backdrop-blur placeholder:text-slate-500 focus:border-blue-700 sm:px-5 sm:text-lg"
@@ -183,6 +180,11 @@ function TrackOrder() {
                       Order #{trackingData.id}
                     </h2>
 
+                    <div className="mt-3 rounded-xl bg-yellow-100 p-3 text-sm font-bold text-yellow-800">
+  Locations: {trackingData.locations?.length || 0} | Journey Updates:{" "}
+  {trackingData.statusUpdates?.length || 0}
+</div>
+
                     <p className="text-sm text-slate-700 sm:text-base">
                       Current Status:{" "}
                       <span className="font-semibold text-green-700">
@@ -192,40 +194,80 @@ function TrackOrder() {
                   </div>
                 </div>
 
-                <div className="mt-8 space-y-7 sm:mt-10 sm:space-y-8">
-                  {trackingSteps.map((step, index) => (
-                    <div key={index} className="flex gap-4 sm:gap-5">
-                      <div className="flex flex-col items-center">
-                        <div
-                          className={`h-5 w-5 shrink-0 rounded-full sm:h-6 sm:w-6 ${
-                            step.status
-                              ? "bg-gradient-to-r from-blue-950 via-sky-600 to-blue-800"
-                              : "bg-slate-300"
-                          }`}
-                        />
+                <div className="mt-8 rounded-2xl border border-sky-200 bg-white/70 p-4 sm:p-5">
+                  <div className="mb-5 flex items-center gap-3">
+                    <Route className="text-blue-950" size={26} />
+                    <h3 className="text-2xl font-black text-blue-950">
+                      Journey Updates
+                    </h3>
+                  </div>
 
-                        {index !== trackingSteps.length - 1 && (
-                          <div
-                            className={`w-[3px] flex-1 ${
-                              step.status ? "bg-blue-700" : "bg-slate-300"
-                            }`}
-                          />
-                        )}
-                      </div>
+                  {trackingData.statusUpdates?.length > 0 ? (
+                    <div className="max-h-[520px] space-y-4 overflow-y-auto pr-2">
+                      {trackingData.statusUpdates.map((update, index) => (
+                        <div key={update.id || index} className="flex gap-4">
+                          <div className="flex flex-col items-center">
+                            <div className="h-5 w-5 shrink-0 rounded-full bg-gradient-to-r from-blue-950 via-sky-600 to-blue-800" />
+                            {index !== trackingData.statusUpdates.length - 1 && (
+                              <div className="w-[3px] flex-1 bg-blue-700" />
+                            )}
+                          </div>
 
-                      <div className="-mt-1 min-w-0">
-                        <h3 className="text-lg font-semibold text-blue-950 sm:text-xl">
-                          {step.title}
-                        </h3>
+                          <div className="mb-4 flex-1 rounded-xl border border-sky-100 bg-sky-50 p-4 shadow-sm">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                              <div>
+                                <h4 className="text-lg font-black text-blue-950">
+                                  {update.title || getStatusLabel(update.status)}
+                                </h4>
 
-                        <p className="mt-1 text-sm text-slate-700 sm:text-base">
-                          {step.status
-                            ? "Completed successfully"
-                            : "Pending update"}
-                        </p>
-                      </div>
+                                {update.locationName && (
+                                  <p className="mt-1 text-sm font-semibold text-blue-700">
+                                    {update.locationName}
+                                  </p>
+                                )}
+                              </div>
+
+                              <span className="w-fit rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">
+                                {formatStatus(update.status)}
+                              </span>
+                            </div>
+
+                            <p className="mt-2 text-sm text-slate-700">
+                              {update.note || "Journey update recorded"}
+                            </p>
+
+                            <div className="mt-3 flex flex-wrap gap-3 text-xs font-medium text-slate-500">
+                              <span>
+                                Updated by:{" "}
+                                {update.updatedByUser?.username || "System"}
+                              </span>
+
+                              <span>
+                                {update.createdAt
+                                  ? new Date(update.createdAt).toLocaleString()
+                                  : "No date"}
+                              </span>
+                            </div>
+
+                            {update.proofImageUrl && (
+                              <a
+                                href={update.proofImageUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="mt-3 inline-flex rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs font-bold text-blue-700 transition hover:bg-blue-50"
+                              >
+                                View Proof
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm font-semibold text-slate-500">
+                      No journey updates yet
+                    </div>
+                  )}
                 </div>
               </div>
             </motion.div>
@@ -287,6 +329,57 @@ function TrackOrder() {
                       </div>
                     </div>
                   ))}
+                </div>
+
+                <div className="mt-8 rounded-2xl border border-sky-200 bg-white/70 p-4">
+                  <div className="mb-5 flex items-center gap-3">
+                    <Navigation className="text-blue-950" size={26} />
+
+                    <h3 className="text-xl font-black text-blue-950">
+                      Location Updates
+                    </h3>
+                  </div>
+
+                  {trackingData.locations?.length > 0 ? (
+                    <div className="max-h-[420px] space-y-4 overflow-y-auto pr-2">
+                      {trackingData.locations.map((location, index) => (
+                        <div
+                          key={location.id || index}
+                          className="rounded-xl border border-sky-100 bg-sky-50 p-4 shadow-sm"
+                        >
+                          <div className="flex items-start gap-3">
+                            <MapPin
+                              className="mt-1 shrink-0 text-blue-950"
+                              size={20}
+                            />
+
+                            <div className="min-w-0">
+                              <h4 className="break-words text-base font-black text-blue-950">
+                                {location.locationName ||
+                                  "Driver Location Update"}
+                              </h4>
+
+                              <p className="mt-2 text-xs font-medium text-slate-500">
+                                {location.createdAt
+                                  ? new Date(location.createdAt).toLocaleString()
+                                  : "No date"}
+                              </p>
+
+                              {(location.latitude || location.longitude) && (
+                                <p className="mt-1 text-xs text-slate-500">
+                                  {location.latitude}, {location.longitude}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm font-semibold text-slate-500">
+                      No location updates yet
+                    </div>
+                  )}
                 </div>
               </div>
             </motion.div>

@@ -4,14 +4,12 @@ import PublicLayout from "../components/layout/PublicLayout";
 import ProtectedRoute from "../components/ProtectedRoute.jsx";
 
 // Public Pages
-import Gallery from "../pages/public/Gallery";
 import Home from "../pages/public/Home";
 import About from "../pages/public/About";
 import Services from "../pages/public/Services";
 import Fleet from "../pages/public/Fleet";
 import TrackOrder from "../pages/public/TrackOrder";
 import Contact from "../pages/public/Contact";
-import NewsUpdates from "../pages/public/News&Updates";
 
 // System Pages
 import Login from "../pages/Login.jsx";
@@ -37,8 +35,6 @@ function AppRoutes() {
         <Route path="/fleet" element={<Fleet />} />
         <Route path="/track-order" element={<TrackOrder />} />
         <Route path="/contact" element={<Contact />} />
-        <Route path="/gallery" element={<Gallery />} />
-        <Route path="/news-and-updates" element={<NewsUpdates />} />
       </Route>
 
       {/* ================= SYSTEM ================= */}

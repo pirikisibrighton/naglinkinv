@@ -23,7 +23,7 @@ const PrintableInvoice = React.forwardRef(({ invoice, order, customer }, ref) =>
           <p><strong>Status:</strong> <span className="text-green-600">{invoice.status.toUpperCase()}</span></p>
         </div>
         <div>
-          <p><strong>Order ID:</strong> #{order.id}</p>
+          <p><strong>Order ID:</strong> {order.orderNumber || `#${order.id}`}</p>
         </div>
       </div>
 

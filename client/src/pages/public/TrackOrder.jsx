@@ -9,6 +9,8 @@ import {
   Phone,
   Clock3,
   AlertCircle,
+  Route,
+  Navigation,
 } from "lucide-react";
 
 function TrackOrder() {
@@ -22,20 +24,32 @@ function TrackOrder() {
 
   const statusOrder = [
     "approved",
+    "en_route_to_loading",
     "loading",
+    "loading_approved",
     "in_transit",
+    "arrived_at_destination",
+    "waiting_to_offload",
     "offloading",
+    "offloading_approved",
     "delivered",
+    "customer_confirmed",
   ];
 
   const getStatusLabel = (status) => {
     const labels = {
       pending: "Pending Approval",
       approved: "Order Approved",
+      en_route_to_loading: "En Route To Loading",
       loading: "Loading",
+      loading_approved: "Loading Approved",
       in_transit: "In Transit",
+      arrived_at_destination: "Arrived At Destination",
+      waiting_to_offload: "Waiting To Offload",
       offloading: "Offloading",
+      offloading_approved: "Offloading Approved",
       delivered: "Delivered",
+      customer_confirmed: "Customer Confirmed",
       cancelled: "Cancelled",
     };
 
@@ -48,10 +62,17 @@ function TrackOrder() {
     return [
       { title: "Order Approved", status: currentIndex >= 0 },
       { title: "Truck Assigned", status: currentIndex >= 0 },
-      { title: "Loading", status: currentIndex >= 1 },
-      { title: "In Transit", status: currentIndex >= 2 },
-      { title: "Offloading", status: currentIndex >= 3 },
-      { title: "Delivered", status: status === "delivered" },
+      { title: "En Route To Loading", status: currentIndex >= 1 },
+      { title: "Loading", status: currentIndex >= 2 },
+      { title: "Loading Approved", status: currentIndex >= 3 },
+      { title: "In Transit", status: currentIndex >= 4 },
+      { title: "Arrived At Destination", status: currentIndex >= 5 },
+      { title: "Waiting To Offload", status: currentIndex >= 6 },
+      { title: "Offloading", status: currentIndex >= 7 },
+      {
+        title: "Delivered",
+        status: ["delivered", "customer_confirmed"].includes(status),
+      },
     ];
   };
 
@@ -71,13 +92,13 @@ function TrackOrder() {
       setTrackingData(null);
 
       const response = await fetch(`${API_BASE_URL}/orders/track/${orderNumber}`);
-
       const data = await response.json();
 
       if (!response.ok) {
         throw new Error(data.message || "Order not found.");
       }
 
+      console.log("TRACKING RESPONSE:", data.tracking);
       setTrackingData(data.tracking);
     } catch (error) {
       console.error("Tracking error:", error);
@@ -90,6 +111,8 @@ function TrackOrder() {
   };
 
   const trackingSteps = getTrackingSteps(trackingData?.status);
+  const journeyUpdates = trackingData?.statusUpdates || [];
+  const locationUpdates = trackingData?.locations || [];
 
   return (
     <main className="min-h-screen overflow-hidden bg-gradient-to-r from-blue-950 via-sky-300 to-white pb-16">
@@ -113,8 +136,8 @@ function TrackOrder() {
               </h1>
 
               <p className="mt-4 max-w-2xl text-sm font-medium leading-7 text-slate-100 sm:text-lg md:leading-8">
-                Monitor your order status from approval, loading, transit,
-                offloading, and final delivery.
+                Monitor your order status, journey updates, live driver
+                locations, and delivery progress.
               </p>
             </motion.div>
           </div>
@@ -133,10 +156,13 @@ function TrackOrder() {
               Enter Order Number
             </h2>
 
-            <form onSubmit={handleTrackOrder} className="flex flex-col gap-4 md:flex-row">
+            <form
+              onSubmit={handleTrackOrder}
+              className="flex flex-col gap-4 md:flex-row"
+            >
               <input
                 type="text"
-                placeholder="e.g 1 or 25"
+                placeholder="e.g ORD-20260525-X7K9Q3"
                 value={trackingNumber}
                 onChange={(e) => setTrackingNumber(e.target.value)}
                 className="h-14 w-full rounded-2xl border-[3px] border-sky-200 bg-white/80 px-4 text-base outline-none backdrop-blur placeholder:text-slate-500 focus:border-blue-700 sm:px-5 sm:text-lg"
@@ -184,7 +210,7 @@ function TrackOrder() {
                     </h2>
 
                     <p className="text-sm text-slate-700 sm:text-base">
-                      Current Status:{" "}
+                      Current Status: {" "}
                       <span className="font-semibold text-green-700">
                         {getStatusLabel(trackingData.status)}
                       </span>
@@ -227,6 +253,58 @@ function TrackOrder() {
                     </div>
                   ))}
                 </div>
+
+                <div className="mt-10 rounded-2xl border border-sky-200 bg-white/80 p-5 shadow-sm">
+                  <div className="mb-5 flex items-center gap-3">
+                    <Navigation className="text-blue-950" size={28} />
+                    <h2 className="text-2xl font-bold text-blue-950">
+                      Location Updates
+                    </h2>
+                  </div>
+
+                  <div className="space-y-4">
+                    {locationUpdates.length > 0 ? (
+                      locationUpdates.map((location, index) => (
+                        <div
+                          key={location.id || index}
+                          className="rounded-2xl border border-sky-200 bg-sky-50 p-4 shadow-sm"
+                        >
+                          <div className="flex items-start gap-3">
+                            <MapPin
+                              className="mt-1 shrink-0 text-blue-950"
+                              size={20}
+                            />
+
+                            <div className="min-w-0">
+                              <h3 className="break-words text-lg font-bold text-blue-950">
+                                {location.locationName ||
+                                  "Driver Location Update"}
+                              </h3>
+
+                              {(location.latitude || location.longitude) && (
+                                <p className="mt-1 text-sm text-slate-700">
+                                  {location.latitude}, {location.longitude}
+                                </p>
+                              )}
+
+                              <p className="mt-2 text-xs text-slate-500">
+                                {location.createdAt
+                                  ? new Date(
+                                      location.createdAt
+                                    ).toLocaleString()
+                                  : ""}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-center text-slate-500">
+                        No location updates available yet
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </motion.div>
 
@@ -261,6 +339,11 @@ function TrackOrder() {
                       Phone,
                     ],
                     [
+                      "Pickup",
+                      trackingData.pickupLocation || "Not available",
+                      MapPin,
+                    ],
+                    [
                       "Destination",
                       trackingData.deliveryLocation || "Not available",
                       MapPin,
@@ -268,7 +351,9 @@ function TrackOrder() {
                     [
                       "Estimated Arrival",
                       trackingData.forecastedArrival
-                        ? new Date(trackingData.forecastedArrival).toLocaleString()
+                        ? new Date(
+                            trackingData.forecastedArrival
+                          ).toLocaleString()
                         : "Not available",
                       Clock3,
                     ],
@@ -287,6 +372,83 @@ function TrackOrder() {
                       </div>
                     </div>
                   ))}
+                </div>
+
+                <div className="mt-10 rounded-2xl border border-sky-200 bg-white/80 p-5 shadow-sm">
+                  <div className="mb-5 flex items-center gap-3">
+                    <Route className="text-blue-950" size={28} />
+                    <h2 className="text-2xl font-bold text-blue-950">
+                      Journey Updates
+                    </h2>
+                  </div>
+
+                  <div className="space-y-4">
+                    {journeyUpdates.length > 0 ? (
+                      journeyUpdates.map((update, index) => (
+                        <div
+                          key={update.id || index}
+                          className="rounded-2xl border border-sky-200 bg-sky-50 p-4 shadow-sm"
+                        >
+                          <div className="flex flex-col gap-3">
+                            <div className="flex items-start justify-between gap-4">
+                              <div>
+                                <h3 className="text-lg font-bold text-blue-950">
+                                  {update.title || "Journey Update"}
+                                </h3>
+
+                                {update.locationName && (
+                                  <p className="mt-1 text-sm font-semibold text-blue-700">
+                                    {update.locationName}
+                                  </p>
+                                )}
+                              </div>
+
+                              <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">
+                                {update.status
+                                  ? update.status
+                                      .replaceAll("_", " ")
+                                      .toUpperCase()
+                                  : "UPDATE"}
+                              </span>
+                            </div>
+
+                            <p className="text-sm text-slate-700">
+                              {update.note || "No additional notes"}
+                            </p>
+
+                            <p className="text-xs font-medium text-slate-500">
+                              Updated by: {" "}
+                              {update.updatedByUser?.username || "System"}
+                              {update.updatedByUser?.role
+                                ? ` (${update.updatedByUser.role})`
+                                : ""}
+                            </p>
+
+                            <p className="text-xs text-slate-500">
+                              {update.createdAt
+                                ? new Date(update.createdAt).toLocaleString()
+                                : ""}
+                            </p>
+
+                            {update.proofImageUrl && (
+                              <a
+                                href={update.proofImageUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex w-fit rounded-lg bg-blue-950 px-4 py-2 text-xs font-bold text-white transition hover:bg-blue-800"
+                              >
+                                View Proof
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-center text-slate-500">
+                        No journey updates available yet
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </motion.div>
