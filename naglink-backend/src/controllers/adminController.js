@@ -1,218 +1,447 @@
-const db = require('../models');
+const db = require("../models");
+
 const Order = db.Order;
 const User = db.User;
 const Truck = db.Truck;
 const Invoice = db.Invoice;
-const { Op, Sequelize } = require('sequelize');
+const OrderStatusUpdate = db.OrderStatusUpdate;
 
-// Get dashboard statistics
-// Get dashboard statistics
+const { Op, Sequelize } = require("sequelize");
+const createNotification = require("../utils/createNotification");
+
+const getOrderLabel = (order) => order.orderNumber || `#${order.id}`;
+
 const getDashboardStats = async (req, res) => {
   try {
-    console.log('Fetching dashboard stats...'); // Debug log
-    
-    // Get counts
     const totalTrucks = await Truck.count();
-    const availableTrucks = await Truck.count({ where: { isAvailable: true } });
-    const totalDrivers = await User.count({ where: { role: 'driver' } });
-    const totalCustomers = await User.count({ where: { role: 'customer' } });
-    
-    console.log('Trucks found:', totalTrucks); // Debug log
-    console.log('Drivers found:', totalDrivers); // Debug log
-    console.log('Customers found:', totalCustomers); // Debug log
-    
-    // Order statistics
-    const pendingOrders = await Order.count({ where: { approvalStatus: 'pending' } });
-    const loadingPending = await Order.count({ where: { status: 'loading', loadingApproved: false } });
-    const offloadingPending = await Order.count({ where: { status: 'offloading', offloadingApproved: false } });
-    const inTransitOrders = await Order.count({ where: { status: 'in_transit' } });
-    const completedOrders = await Order.count({ where: { status: 'delivered' } });
-    
-    // Revenue
-    const totalRevenue = await Invoice.sum('amount', { where: { status: 'paid' } }) || 0;
-    const pendingPayments = await Invoice.sum('amount', { where: { status: 'pending' } }) || 0;
-    
-    // Recent orders
+
+    const availableTrucks = await Truck.count({
+      where: { isAvailable: true },
+    });
+
+    const totalDrivers = await User.count({
+      where: { role: "driver" },
+    });
+
+    const totalCustomers = await User.count({
+      where: { role: "customer" },
+    });
+
+    const pendingOrders = await Order.count({
+      where: { approvalStatus: "pending" },
+    });
+
+    const loadingPending = await Order.count({
+      where: {
+        status: "loading",
+        loadingApproved: false,
+      },
+    });
+
+    const offloadingPending = await Order.count({
+      where: {
+        status: "offloading",
+        offloadingApproved: false,
+      },
+    });
+
+    const inTransitOrders = await Order.count({
+      where: { status: "in_transit" },
+    });
+
+    const completedOrders = await Order.count({
+      where: {
+        status: {
+          [Op.in]: ["delivered", "customer_confirmed"],
+        },
+      },
+    });
+
+    const revenueOrders = await Order.findAll({
+      where: {
+        status: {
+          [Op.in]: ["delivered", "customer_confirmed"],
+        },
+        price: {
+          [Op.ne]: null,
+        },
+      },
+      attributes: ["price", "createdAt"],
+      order: [["createdAt", "ASC"]],
+    });
+
+    const totalRevenue = revenueOrders.reduce(
+      (sum, order) => sum + Number(order.price || 0),
+      0
+    );
+
+    const weeklyMap = {};
+
+    revenueOrders.forEach((order) => {
+      const date = new Date(order.createdAt);
+      const year = date.getFullYear();
+
+      const firstDayOfYear = new Date(year, 0, 1);
+      const pastDaysOfYear = Math.floor((date - firstDayOfYear) / 86400000);
+
+      const weekNumber = Math.ceil(
+        (pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7
+      );
+
+      const weekKey = `${year} W${weekNumber}`;
+
+      if (!weeklyMap[weekKey]) {
+        weeklyMap[weekKey] = 0;
+      }
+
+      weeklyMap[weekKey] += Number(order.price || 0);
+    });
+
+    const revenueByWeek = Object.entries(weeklyMap)
+      .map(([week, revenue]) => ({
+        week,
+        revenue,
+      }))
+      .slice(-5);
+
+    const highestRevenueWeek =
+      revenueByWeek.length > 0
+        ? revenueByWeek.reduce((highest, current) =>
+            current.revenue > highest.revenue ? current : highest
+          )
+        : null;
+
+    const pendingPayments =
+      (await Order.sum("price", {
+        where: {
+          status: {
+            [Op.notIn]: ["delivered", "customer_confirmed", "cancelled"],
+          },
+          price: {
+            [Op.ne]: null,
+          },
+        },
+      })) || 0;
+
     const recentOrders = await Order.findAll({
       limit: 5,
-      order: [['createdAt', 'DESC']],
+      order: [["createdAt", "DESC"]],
       include: [
-        { model: User, as: 'customer', attributes: ['username'] },
-        { model: User, as: 'driver', attributes: ['username'] }
-      ]
+        {
+          model: User,
+          as: "customer",
+          attributes: ["username"],
+        },
+        {
+          model: User,
+          as: "driver",
+          attributes: ["username"],
+        },
+      ],
     });
-    
-    const stats = {
+
+    res.json({
       trucks: {
         total: totalTrucks,
         available: availableTrucks,
-        inUse: totalTrucks - availableTrucks
+        inUse: totalTrucks - availableTrucks,
       },
       drivers: totalDrivers,
       customers: totalCustomers,
       orders: {
         pending: pendingOrders,
-        loadingPending: loadingPending,
-        offloadingPending: offloadingPending,
+        loadingPending,
+        offloadingPending,
         inTransit: inTransitOrders,
-        completed: completedOrders
+        completed: completedOrders,
       },
       finances: {
         totalRevenue,
-        pendingPayments
+        pendingPayments,
+        revenueByWeek,
+        highestRevenueWeek,
       },
-      recentOrders
-    };
-    
-    console.log('Stats being sent:', stats); // Debug log
-    
-    res.json(stats);
+      recentOrders,
+    });
   } catch (error) {
-    console.error('Error in getDashboardStats:', error);
-    res.status(500).json({ message: 'Error fetching dashboard stats', error: error.message });
+    console.error("Error in getDashboardStats:", error);
+
+    res.status(500).json({
+      message: "Error fetching dashboard stats",
+      error: error.message,
+    });
   }
 };
-// Get all trips with filters
+
 const getAllTrips = async (req, res) => {
   try {
     const { status, startDate, endDate } = req.query;
-    let where = {};
-    
-    if (status) where.status = status;
+
+    const where = {};
+
+    if (status) {
+      where.status = status;
+    }
+
     if (startDate && endDate) {
       where.createdAt = {
-        [Op.between]: [new Date(startDate), new Date(endDate)]
+        [Op.between]: [new Date(startDate), new Date(endDate)],
       };
     }
-    
+
     const trips = await Order.findAll({
       where,
       include: [
-        { model: User, as: 'customer', attributes: ['username', 'email', 'phone'] },
-        { model: User, as: 'driver', attributes: ['username', 'email', 'phone'] },
-        { model: Truck, as: 'truck' },
-        { model: Invoice, as: 'invoice' }
+        {
+          model: User,
+          as: "customer",
+          attributes: ["username", "email", "phone"],
+        },
+        {
+          model: User,
+          as: "driver",
+          attributes: ["username", "email", "phone"],
+        },
+        {
+          model: Truck,
+          as: "truck",
+        },
+        {
+          model: Invoice,
+          as: "invoice",
+        },
       ],
-      order: [['createdAt', 'DESC']]
+      order: [["createdAt", "DESC"]],
     });
-    
+
     res.json({ trips });
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching trips', error: error.message });
+    res.status(500).json({
+      message: "Error fetching trips",
+      error: error.message,
+    });
   }
 };
 
-// Admin approves loading document
 const approveLoading = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const order = await Order.findByPk(id);
+
     if (!order) {
-      return res.status(404).json({ message: 'Order not found' });
+      return res.status(404).json({ message: "Order not found" });
     }
-    
+
     await order.update({
       loadingApproved: true,
-      status: 'in_transit'
+      status: "in_transit",
     });
-    
+
+    const orderLabel = getOrderLabel(order);
+
+    await OrderStatusUpdate.create({
+      orderId: order.id,
+      updatedBy: req.userId,
+      status: "in_transit",
+      title: "Loading Approved",
+      note: "Admin approved loading. Order is now in transit.",
+      locationName: order.pickupLocation,
+    });
+
+    await createNotification({
+      userId: order.driverId,
+      roleTarget: "driver",
+      orderId: order.id,
+      title: "Loading Approved",
+      message: `Loading for order ${orderLabel} has been approved. You can proceed in transit.`,
+      type: "loading_approved",
+    });
+
+    await createNotification({
+      userId: order.customerId,
+      roleTarget: "customer",
+      orderId: order.id,
+      title: "Order In Transit",
+      message: `Loading for your order ${orderLabel} has been approved. The order is now in transit.`,
+      type: "loading_approved",
+    });
+
     res.json({
-      message: 'Loading approved. Order is now in transit.',
-      order
+      message: "Loading approved. Order is now in transit.",
+      order,
     });
   } catch (error) {
-    res.status(500).json({ message: 'Error approving loading', error: error.message });
+    console.error("Approve loading error:", error);
+
+    res.status(500).json({
+      message: "Error approving loading",
+      error: error.message,
+    });
   }
 };
 
-// Admin approves offloading document (POD)
-// Admin approves offloading document (POD)
 const approveOffloading = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const order = await Order.findByPk(id);
+
     if (!order) {
-      return res.status(404).json({ message: 'Order not found' });
+      return res.status(404).json({ message: "Order not found" });
     }
-    
+
     await order.update({
       offloadingApproved: true,
-      status: 'delivered'
+      status: "delivered",
     });
-    
-    // Free up the truck
+
+    const orderLabel = getOrderLabel(order);
+
+    await OrderStatusUpdate.create({
+      orderId: order.id,
+      updatedBy: req.userId,
+      status: "delivered",
+      title: "Offloading Approved",
+      note: "Admin approved offloading. Order is now delivered.",
+      locationName: order.deliveryLocation,
+    });
+
+    await createNotification({
+      userId: order.driverId,
+      roleTarget: "driver",
+      orderId: order.id,
+      title: "Offloading Approved",
+      message: `Offloading for order ${orderLabel} has been approved.`,
+      type: "offloading_approved",
+    });
+
+    await createNotification({
+      userId: order.customerId,
+      roleTarget: "customer",
+      orderId: order.id,
+      title: "Order Delivered",
+      message: `Your order ${orderLabel} has been delivered successfully.`,
+      type: "offloading_approved",
+    });
+
     if (order.truckId) {
-      await Truck.update({ isAvailable: true }, { where: { id: order.truckId } });
+      await Truck.update(
+        { isAvailable: true },
+        { where: { id: order.truckId } }
+      );
     }
-    
-    // Free up the driver
+
     if (order.driverId) {
-      await User.update({ isAvailable: true }, { where: { id: order.driverId } });
+      await User.update(
+        { isAvailable: true },
+        { where: { id: order.driverId } }
+      );
     }
-    
+
     res.json({
-      message: 'Offloading approved. Order completed.',
-      order
+      message: "Offloading approved. Order completed.",
+      order,
     });
   } catch (error) {
-    res.status(500).json({ message: 'Error approving offloading', error: error.message });
+    console.error("Approve offloading error:", error);
+
+    res.status(500).json({
+      message: "Error approving offloading",
+      error: error.message,
+    });
   }
 };
-// Get expenses
+
 const getExpenses = async (req, res) => {
   try {
     const tripsWithExpenses = await Order.findAll({
       where: {
-        status: 'delivered',
+        status: {
+          [Op.in]: ["delivered", "customer_confirmed"],
+        },
         price: {
-          [Op.gt]: 0
-        }
+          [Op.gt]: 0,
+        },
       },
-      attributes: ['id', 'pickupLocation', 'deliveryLocation', 'price', 'createdAt'],
+      attributes: [
+        "id",
+        "orderNumber",
+        "pickupLocation",
+        "deliveryLocation",
+        "price",
+        "createdAt",
+      ],
       include: [
-        { model: Truck, as: 'truck', attributes: ['truckName', 'licensePlate'] }
-      ]
+        {
+          model: Truck,
+          as: "truck",
+          attributes: ["truckName", "licensePlate"],
+        },
+      ],
     });
-    
+
     res.json({ expenses: tripsWithExpenses });
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching expenses', error: error.message });
+    res.status(500).json({
+      message: "Error fetching expenses",
+      error: error.message,
+    });
   }
 };
 
-// Get cashflow report
 const getCashflow = async (req, res) => {
   try {
     const { period } = req.query;
-    
-    const revenueData = await Invoice.findAll({
-      where: { status: 'paid' },
+
+    const revenueData = await Order.findAll({
+      where: {
+        status: {
+          [Op.in]: ["delivered", "customer_confirmed"],
+        },
+        price: {
+          [Op.ne]: null,
+        },
+      },
       attributes: [
-        [Sequelize.fn('DATE_TRUNC', period || 'day', Sequelize.col('createdAt')), 'date'],
-        [Sequelize.fn('SUM', Sequelize.col('amount')), 'total']
+        [
+          Sequelize.fn(
+            "DATE_TRUNC",
+            period || "day",
+            Sequelize.col("createdAt")
+          ),
+          "date",
+        ],
+        [Sequelize.fn("SUM", Sequelize.col("price")), "total"],
       ],
-      group: [Sequelize.fn('DATE_TRUNC', period || 'day', Sequelize.col('createdAt'))],
-      order: [[Sequelize.fn('DATE_TRUNC', period || 'day', Sequelize.col('createdAt')), 'ASC']]
-    });
-    
-    const pendingData = await Invoice.findAll({
-      where: { status: 'pending' },
-      attributes: [
-        [Sequelize.fn('DATE_TRUNC', period || 'day', Sequelize.col('createdAt')), 'date'],
-        [Sequelize.fn('SUM', Sequelize.col('amount')), 'total']
+      group: [
+        Sequelize.fn(
+          "DATE_TRUNC",
+          period || "day",
+          Sequelize.col("createdAt")
+        ),
       ],
-      group: [Sequelize.fn('DATE_TRUNC', period || 'day', Sequelize.col('createdAt'))],
-      order: [[Sequelize.fn('DATE_TRUNC', period || 'day', Sequelize.col('createdAt')), 'ASC']]
+      order: [
+        [
+          Sequelize.fn(
+            "DATE_TRUNC",
+            period || "day",
+            Sequelize.col("createdAt")
+          ),
+          "ASC",
+        ],
+      ],
     });
-    
+
     res.json({
       revenue: revenueData,
-      pending: pendingData
+      pending: [],
     });
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching cashflow', error: error.message });
+    res.status(500).json({
+      message: "Error fetching cashflow",
+      error: error.message,
+    });
   }
 };
 
@@ -222,5 +451,5 @@ module.exports = {
   approveLoading,
   approveOffloading,
   getExpenses,
-  getCashflow
+  getCashflow,
 };

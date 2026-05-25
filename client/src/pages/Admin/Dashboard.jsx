@@ -787,6 +787,19 @@ const getFilteredDrivers = () => {
   const cancelButton =
     "rounded-2xl border-2 border-sky-200 bg-white px-5 py-3 font-bold text-blue-950 transition hover:bg-sky-100";
 
+  const formatCurrency = (value) => {
+    const amount = Number(value || 0);
+
+    return `$${amount.toFixed(2)}`;
+  };
+
+  const weeklyRevenue = stats?.finances?.weeklyRevenue || [];
+  const highestRevenueWeek = stats?.finances?.highestRevenueWeek || null;
+  const maxWeeklyRevenue = Math.max(
+    ...weeklyRevenue.map((week) => Number(week.revenue || 0)),
+    1
+  );
+
   return (
     <DashboardLayout
       user={user}
@@ -846,16 +859,6 @@ const getFilteredDrivers = () => {
           bgColor: "bg-purple-500/10",
           textColor: "text-purple-300",
         },
-        {
-          title: "Revenue",
-          value: `$${stats.finances?.totalRevenue?.toFixed(2) || 0}`,
-          subtitle: `Pending: $${
-            stats.finances?.pendingPayments?.toFixed(2) || 0
-          }`,
-          icon: DollarSign,
-          bgColor: "bg-orange-500/10",
-          textColor: "text-orange-300",
-        },
       ].map((card, index) => {
         const Icon = card.icon;
 
@@ -888,6 +891,90 @@ const getFilteredDrivers = () => {
           </div>
         );
       })}
+
+      <div className="rounded-md border border-white/20 bg-gradient-to-br from-blue-950 via-sky-800 to-blue-900 text-white shadow-xl transition duration-200 hover:border-white/40 sm:col-span-2 xl:col-span-1">
+        <div className="p-6 py-5">
+          <div className="mb-4 flex items-start justify-between gap-4">
+            <div>
+              <p className="mb-1 text-sm font-medium text-sky-100">
+                Revenue
+              </p>
+
+              <p className="text-3xl font-black text-white sm:text-4xl">
+                {formatCurrency(stats.finances?.totalRevenue)}
+              </p>
+
+              <p className="mt-1 text-xs font-medium text-sky-200">
+                Pending: {formatCurrency(stats.finances?.pendingPayments)}
+              </p>
+            </div>
+
+            <div className="rounded-xl bg-orange-500/10 p-3">
+              <DollarSign size={22} className="text-orange-300" />
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-white/10 bg-white/10 p-3">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <p className="text-xs font-bold uppercase tracking-wide text-sky-100">
+                Last 5 Weeks
+              </p>
+
+              <p className="text-[11px] font-semibold text-orange-200">
+                Highest: {highestRevenueWeek?.label || "N/A"}
+              </p>
+            </div>
+
+            <div className="flex h-24 items-end gap-2">
+              {weeklyRevenue.length > 0 ? (
+                weeklyRevenue.map((week, index) => {
+                  const barHeight = Math.max(
+                    8,
+                    (Number(week.revenue || 0) / maxWeeklyRevenue) * 100
+                  );
+
+                  const isHighest =
+                    highestRevenueWeek && week.label === highestRevenueWeek.label;
+
+                  return (
+                    <div
+                      key={`${week.label}-${index}`}
+                      className="flex flex-1 flex-col items-center gap-2"
+                      title={`${week.label}: ${formatCurrency(week.revenue)}`}
+                    >
+                      <div className="flex h-16 w-full items-end rounded-lg bg-white/10 px-1">
+                        <div
+                          className={`w-full rounded-md ${
+                            isHighest
+                              ? "bg-orange-300"
+                              : "bg-gradient-to-t from-sky-400 to-white"
+                          }`}
+                          style={{ height: `${barHeight}%` }}
+                        />
+                      </div>
+
+                      <span className="text-[10px] font-bold text-sky-100">
+                        {week.shortLabel || `W${index + 1}`}
+                      </span>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-sky-200">
+                  No revenue data yet
+                </div>
+              )}
+            </div>
+
+            <div className="mt-3 flex items-center justify-between text-[11px] font-semibold text-sky-200">
+              <span>
+                Best: {formatCurrency(highestRevenueWeek?.revenue)}
+              </span>
+              <span>{highestRevenueWeek?.orders || 0} orders</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">

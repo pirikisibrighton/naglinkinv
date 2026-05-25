@@ -2,6 +2,7 @@ const db = require("../models");
 
 const Order = db.Order;
 const OrderLocation = db.OrderLocation;
+const createNotification = require("../utils/createNotification");
 
 const reverseGeocode = async (latitude, longitude) => {
   try {
@@ -47,11 +48,9 @@ const reverseGeocode = async (latitude, longitude) => {
       (item, index, array) => item && array.indexOf(item) === index
     );
 
-    if (parts.length > 0) {
-      return parts.join(", ");
-    }
-
-    return data.display_name || `${latitude}, ${longitude}`;
+    return parts.length > 0
+      ? parts.join(", ")
+      : data.display_name || `${latitude}, ${longitude}`;
   } catch (error) {
     console.error("Reverse geocoding error:", error);
     return `${latitude}, ${longitude}`;
@@ -69,13 +68,6 @@ const createLocationUpdate = async (req, res) => {
       });
     }
 
-    console.log("Received GPS:", {
-      orderId,
-      latitude,
-      longitude,
-      accuracy,
-    });
-
     const order = await Order.findByPk(orderId);
 
     if (!order) {
@@ -90,6 +82,7 @@ const createLocationUpdate = async (req, res) => {
       });
     }
 
+    const orderLabel = order.orderNumber || `#${order.id}`;
     const locationName = await reverseGeocode(latitude, longitude);
 
     const location = await OrderLocation.create({
@@ -97,7 +90,25 @@ const createLocationUpdate = async (req, res) => {
       driverId: req.userId,
       latitude,
       longitude,
+      accuracy,
       locationName,
+    });
+
+    await createNotification({
+      userId: order.customerId,
+      roleTarget: "customer",
+      orderId: order.id,
+      title: "Driver Location Updated",
+      message: `Driver updated location for order ${orderLabel}: ${locationName}.`,
+      type: "location_update",
+    });
+
+    await createNotification({
+      roleTarget: "admin",
+      orderId: order.id,
+      title: "Driver Location Updated",
+      message: `Driver updated location for order ${orderLabel}: ${locationName}.`,
+      type: "location_update",
     });
 
     res.status(201).json({

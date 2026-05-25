@@ -6,6 +6,10 @@ const Truck = db.Truck;
 const OrderLocation = db.OrderLocation;
 const OrderStatusUpdate = db.OrderStatusUpdate;
 
+const createNotification = require("../utils/createNotification");
+
+const getOrderLabel = (order) => order.orderNumber || `#${order.id}`;
+
 // Driver gets orders assigned to them
 const getMyAssignedOrders = async (req, res) => {
   try {
@@ -105,8 +109,28 @@ const startLoading = async (req, res) => {
       proofImageUrl: loadingDocumentUrl,
     });
 
+    const orderLabel = getOrderLabel(order);
+
+    await createNotification({
+      roleTarget: "admin",
+      orderId: order.id,
+      title: "Loading Started",
+      message: `Driver started loading for order ${orderLabel}. Waiting for admin approval.`,
+      type: "loading_started",
+    });
+
+    await createNotification({
+      userId: order.customerId,
+      roleTarget: "customer",
+      orderId: order.id,
+      title: "Loading Started",
+      message: `Loading has started for your order ${orderLabel}.`,
+      type: "loading_started",
+    });
+
     res.json({
-      message: "Loading details submitted successfully. Waiting for admin approval.",
+      message:
+        "Loading details submitted successfully. Waiting for admin approval.",
       order,
     });
   } catch (error) {
@@ -169,8 +193,28 @@ const uploadOffloadingDocument = async (req, res) => {
       proofImageUrl: offloadingDocumentUrl,
     });
 
+    const orderLabel = getOrderLabel(order);
+
+    await createNotification({
+      roleTarget: "admin",
+      orderId: order.id,
+      title: "Offloading Started",
+      message: `Driver uploaded offloading proof for order ${orderLabel}. Waiting for admin approval.`,
+      type: "offloading_started",
+    });
+
+    await createNotification({
+      userId: order.customerId,
+      roleTarget: "customer",
+      orderId: order.id,
+      title: "Offloading Started",
+      message: `Offloading has started for your order ${orderLabel}.`,
+      type: "offloading_started",
+    });
+
     res.json({
-      message: "Offloading document uploaded successfully. Waiting for admin approval.",
+      message:
+        "Offloading document uploaded successfully. Waiting for admin approval.",
       order,
     });
   } catch (error) {
@@ -215,6 +259,25 @@ const completeTrip = async (req, res) => {
       locationName: order.deliveryLocation,
     });
 
+    const orderLabel = getOrderLabel(order);
+
+    await createNotification({
+      roleTarget: "admin",
+      orderId: order.id,
+      title: "Order Delivered",
+      message: `Driver marked order ${orderLabel} as delivered.`,
+      type: "order_delivered",
+    });
+
+    await createNotification({
+      userId: order.customerId,
+      roleTarget: "customer",
+      orderId: order.id,
+      title: "Order Delivered",
+      message: `Your order ${orderLabel} has been marked as delivered.`,
+      type: "order_delivered",
+    });
+
     if (order.truckId) {
       await Truck.update(
         { isAvailable: true },
@@ -222,10 +285,7 @@ const completeTrip = async (req, res) => {
       );
     }
 
-    await User.update(
-      { isAvailable: true },
-      { where: { id: req.userId } }
-    );
+    await User.update({ isAvailable: true }, { where: { id: req.userId } });
 
     res.json({
       message: "Trip completed successfully! Order delivered.",
@@ -241,7 +301,6 @@ const completeTrip = async (req, res) => {
   }
 };
 
-// Get driver's trip history
 const getMyTripHistory = async (req, res) => {
   try {
     const orders = await Order.findAll({

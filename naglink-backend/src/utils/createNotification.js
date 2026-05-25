@@ -11,7 +11,9 @@ const createNotification = async ({
   type = "info",
 }) => {
   try {
-    await Notification.create({
+    if (!title || !message) return null;
+
+    const notification = await Notification.create({
       userId,
       roleTarget,
       orderId,
@@ -20,8 +22,11 @@ const createNotification = async ({
       type,
       isRead: false,
     });
+
+    return notification;
   } catch (error) {
     console.error("Notification creation error:", error);
+    return null;
   }
 };
 
