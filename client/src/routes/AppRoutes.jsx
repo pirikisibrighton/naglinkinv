@@ -10,6 +10,8 @@ import Services from "../pages/public/Services";
 import Fleet from "../pages/public/Fleet";
 import TrackOrder from "../pages/public/TrackOrder";
 import Contact from "../pages/public/Contact";
+import Gallery from "../pages/public/Gallery";
+import NewsUpdates from "../pages/public/NewsUpdates";
 
 // System Pages
 import Login from "../pages/Login.jsx";
@@ -33,6 +35,8 @@ function AppRoutes() {
         <Route path="/about" element={<About />} />
         <Route path="/services" element={<Services />} />
         <Route path="/fleet" element={<Fleet />} />
+        <Route path="/gallery" element={<Gallery />} />
+        <Route path="/news-updates" element={<NewsUpdates />} />
         <Route path="/track-order" element={<TrackOrder />} />
         <Route path="/contact" element={<Contact />} />
       </Route>
