@@ -10,7 +10,7 @@ import Services from "../pages/public/Services";
 import Fleet from "../pages/public/Fleet";
 import TrackOrder from "../pages/public/TrackOrder";
 import Contact from "../pages/public/Contact";
-import Gallery from "../pages/public/Gallery";
+import Gallery from "../pages/public/gallery";
 import NewsUpdates from "../pages/public/NewsUpdates";
 
 // System Pages
