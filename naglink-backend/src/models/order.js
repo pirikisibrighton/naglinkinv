@@ -64,6 +64,12 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
       },
 
+      orderNumber: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        unique: true,
+      },
+
       driverId: {
         type: DataTypes.INTEGER,
         allowNull: true,

@@ -446,7 +446,7 @@ const CustomerDashboard = () => {
                             className="border-t border-white/10 text-sky-50 transition hover:bg-white/10"
                           >
                             <td className="px-4 py-4 font-black text-white">
-                              #{order.id}
+                              {order.orderNumber || `#${order.id}`}
                             </td>
 
                             <td className="px-4 py-4">
@@ -534,7 +534,7 @@ const CustomerDashboard = () => {
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div>
                         <p className="text-lg font-black text-white">
-                          Order #{order.id}
+                          Order {order.orderNumber || `#${order.id}`}
                         </p>
 
                         <p className="mt-2 text-sm text-sky-100">

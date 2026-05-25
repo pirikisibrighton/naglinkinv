@@ -198,10 +198,6 @@ const DriverDashboard = () => {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      await API.post(`/order-status-updates/${orderId}`, {
-        status: "loading",
-        note: loadingData.loadingNotes || "Loading started. Waiting for admin approval.",
-      });
 
       toast.success("Loading details submitted! Waiting for admin approval.");
 
@@ -236,10 +232,6 @@ const DriverDashboard = () => {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      await API.post(`/order-status-updates/${orderId}`, {
-        status: "offloading",
-        note: "Offloading document uploaded. Waiting for admin approval.",
-      });
 
       toast.success("Offloading document uploaded! Waiting for admin approval.");
 
@@ -489,7 +481,7 @@ const DriverDashboard = () => {
                       className="border-t border-white/10 text-sky-50 transition hover:bg-white/10"
                     >
                       <td className="px-4 py-4 font-black text-white">
-                        #{order.id}
+                        {order.orderNumber || `#${order.id}`}
                       </td>
 
                       <td className="px-4 py-4">
@@ -602,7 +594,7 @@ const DriverDashboard = () => {
                       <div className="flex-1">
                         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
                           <p className="text-lg font-black text-white">
-                            Order #{order.id}
+                            Order {order.orderNumber || `#${order.id}`}
                           </p>
 
                           <span
