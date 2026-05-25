@@ -549,6 +549,14 @@ const addOrderExpenses = async (req, res) => {
       offloadingCost,
       otherDescription,
       otherCost,
+      zimTolls,
+      mozaTolls,
+      roadAccess,
+      vidCosts,
+      emaCosts,
+      portHealth,
+      portFee,
+      agentRunner,
     } = req.body;
 
     const order = await Order.findOne({
@@ -566,7 +574,16 @@ const addOrderExpenses = async (req, res) => {
       Number(driverAllowance || 0) +
       Number(loadingCost || 0) +
       Number(offloadingCost || 0) +
-      Number(otherCost || 0);
+      Number(otherCost || 0) +
+      Number(zimTolls || 0) +
+      Number(mozaTolls || 0) +
+      Number(roadAccess || 0) +
+      Number(vidCosts || 0) +
+      Number(emaCosts || 0) +
+      Number(portHealth || 0) +
+      Number(portFee || 0) +
+      Number(agentRunner || 0);
+
 
     const expense = await Expense.create({
       orderId: order.id,
@@ -578,7 +595,16 @@ const addOrderExpenses = async (req, res) => {
       offloadingCost: offloadingCost || 0,
       otherDescription,
       otherCost: otherCost || 0,
+      zimTolls: zimTolls || 0,
+      mozaTolls: mozaTolls || 0,
+      roadAccess: roadAccess || 0,
+      vidCosts: vidCosts || 0,
+      emaCosts: emaCosts || 0,
+      portHealth: portHealth || 0,
+      portFee: portFee || 0,
+      agentRunner: agentRunner || 0,
       totalAmount,
+
     });
 
     res.status(201).json({
@@ -594,6 +620,100 @@ const addOrderExpenses = async (req, res) => {
     });
   }
 };
+
+// const downloadOrderExpensesPDF = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+
+//     const expenses = await Expense.findAll({
+//       where: { orderId: id },
+//       include: [
+//         {
+//           model: Order,
+//           as: "order",
+//           include: [
+//             {
+//               model: User,
+//               as: "customer",
+//               attributes: ["username", "email", "phone"],
+//             },
+//             {
+//               model: User,
+//               as: "driver",
+//               attributes: ["username", "email", "phone"],
+//             },
+//             { model: Truck, as: "truck" },
+//           ],
+//         },
+//       ],
+//     });
+
+//     if (!expenses.length) {
+//       return res.status(404).json({
+//         message: "No expenses found for this order",
+//       });
+//     }
+
+//     const order = expenses[0].order;
+//     const doc = new PDFDocument({ margin: 50 });
+
+//     res.setHeader("Content-Type", "application/pdf");
+//     res.setHeader(
+//       "Content-Disposition",
+//       `attachment; filename=order_${id}_expenses.pdf`
+//     );
+
+//     doc.pipe(res);
+
+//     doc.fontSize(22).text("Order Expenses Report", { align: "center" });
+//     doc.moveDown();
+
+//     doc.fontSize(12).text(`Order: #${order.id}`);
+//     doc.text(`Customer: ${order.customer?.username || "N/A"}`);
+//     doc.text(`Driver: ${order.driver?.username || "N/A"}`);
+//     doc.text(`Truck: ${order.truck?.truckName || "N/A"}`);
+//     doc.text(
+//       `Route: ${order.pickupLocation || "N/A"} to ${
+//         order.deliveryLocation || "N/A"
+//       }`
+//     );
+//     doc.moveDown();
+
+//     let grandTotal = 0;
+
+//     expenses.forEach((expense, index) => {
+//       grandTotal += Number(expense.totalAmount || 0);
+
+//       doc.fontSize(14).text(`Expense Entry ${index + 1}`, {
+//         underline: true,
+//       });
+//       doc.fontSize(11).text(`Fuel: $${expense.fuel || 0}`);
+//       doc.text(`Tollgate: $${expense.tollgate || 0}`);
+//       doc.text(`Maintenance: $${expense.maintenance || 0}`);
+//       doc.text(`Driver Allowance: $${expense.driverAllowance || 0}`);
+//       doc.text(`Loading Cost: $${expense.loadingCost || 0}`);
+//       doc.text(`Offloading Cost: $${expense.offloadingCost || 0}`);
+//       doc.text(
+//         `Other: ${expense.otherDescription || "N/A"} - $${
+//           expense.otherCost || 0
+//         }`
+//       );
+//       doc.text(`Total: $${Number(expense.totalAmount || 0).toFixed(2)}`);
+//       doc.moveDown();
+//     });
+
+//     doc.fontSize(16).text(`Grand Total: $${grandTotal.toFixed(2)}`, {
+//       align: "right",
+//     });
+
+//     doc.end();
+//   } catch (error) {
+//     res.status(500).json({
+//       message: "Error generating PDF",
+//       error: error.message,
+//     });
+//   }
+// };
 
 const downloadOrderExpensesPDF = async (req, res) => {
   try {
@@ -671,8 +791,17 @@ const downloadOrderExpensesPDF = async (req, res) => {
       doc.fontSize(14).text(`Expense Entry ${index + 1}`, {
         underline: true,
       });
+
       doc.fontSize(11).text(`Fuel: $${expense.fuel || 0}`);
       doc.text(`Tollgate: $${expense.tollgate || 0}`);
+      doc.text(`Zim Tolls: $${expense.zimTolls || 0}`);
+      doc.text(`Moza Tolls: $${expense.mozaTolls || 0}`);
+      doc.text(`Road Access: $${expense.roadAccess || 0}`);
+      doc.text(`VID Costs: $${expense.vidCosts || 0}`);
+      doc.text(`EMA Costs: $${expense.emaCosts || 0}`);
+      doc.text(`Port Health: $${expense.portHealth || 0}`);
+      doc.text(`Port Fee: $${expense.portFee || 0}`);
+      doc.text(`Agent / Runner: $${expense.agentRunner || 0}`);
       doc.text(`Maintenance: $${expense.maintenance || 0}`);
       doc.text(`Driver Allowance: $${expense.driverAllowance || 0}`);
       doc.text(`Loading Cost: $${expense.loadingCost || 0}`);
@@ -682,6 +811,7 @@ const downloadOrderExpensesPDF = async (req, res) => {
           expense.otherCost || 0
         }`
       );
+
       doc.text(`Total: $${Number(expense.totalAmount || 0).toFixed(2)}`);
       doc.moveDown();
     });
