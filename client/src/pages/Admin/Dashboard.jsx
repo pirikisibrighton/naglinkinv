@@ -81,6 +81,14 @@ const [quoteReplyData, setQuoteReplyData] = useState({
   loadingCost: "",
   offloadingCost: "",
   otherDescription: "",
+  zimTolls: "",
+  mozaTolls: "",
+  roadAccess: "",
+  vidCosts: "",
+  emaCosts: "",
+  portHealth: "",
+  portFee: "",
+  agentRunner: "",
   otherCost: "",
 });
 
@@ -224,6 +232,14 @@ const handleOpenExpenseForm = (order) => {
     loadingCost: "",
     offloadingCost: "",
     otherDescription: "",
+    zimTolls: "",
+    mozaTolls: "",
+    roadAccess: "",
+    vidCosts: "",
+    emaCosts: "",
+    portHealth: "",
+    portFee: "",
+    agentRunner: "",
     otherCost: "",
   });
   setShowExpenseForm(true);
@@ -267,6 +283,67 @@ const handleDownloadExpensePDF = async (orderId) => {
   }
 };
 
+
+
+
+// const handleDownloadExpensePDF = async (orderId) => {
+//   try {
+//     const response = await API.get(`/orders/${orderId}/expenses/pdf`, {
+//       responseType: "blob",
+//     });
+
+//     const blob = new Blob([response.data], {
+//       type: "application/pdf",
+//     });
+
+//     const url = window.URL.createObjectURL(blob);
+//     const link = document.createElement("a");
+
+//     link.href = url;
+//     link.download = `order_${orderId}_expenses.pdf`;
+//     link.style.display = "none";
+
+//     document.body.appendChild(link);
+//     link.click();
+
+//     setTimeout(() => {
+//       document.body.removeChild(link);
+//       window.URL.revokeObjectURL(url);
+//     }, 100);
+
+//     toast.success("Expenses PDF downloaded!");
+//   } catch (error) {
+//     console.error("PDF download error:", error);
+
+//     if (error.response?.status === 404) {
+//       toast.error("No expenses found for this order");
+//     } else {
+//       toast.error("Error downloading expenses PDF");
+//     }
+//   }
+// };
+
+// const handleDownloadExpensePDF = async (orderId) => {
+//   const response = await API.get(`/orders/${orderId}/expenses/pdf`, {
+//     responseType: "blob",
+//   });
+
+//   const blob = new Blob([response.data], { type: "application/pdf" });
+//   const url = window.URL.createObjectURL(blob);
+
+//   const link = document.createElement("a");
+//   link.href = url;
+//   link.download = `order_${orderId}_expenses.pdf`;
+
+//   document.body.appendChild(link);
+//   link.click();
+
+//   document.body.removeChild(link);
+//   window.URL.revokeObjectURL(url);
+// };
+
+
+
 const getExpenseTotal = (expense) => {
   return (
     Number(expense.fuel || 0) +
@@ -275,6 +352,14 @@ const getExpenseTotal = (expense) => {
     Number(expense.driverAllowance || 0) +
     Number(expense.loadingCost || 0) +
     Number(expense.offloadingCost || 0) +
+    Number(expense.zimTolls || 0) +
+    Number(expense.mozaTolls || 0) +
+    Number(expense.roadAccess || 0) +
+    Number(expense.vidCosts || 0) +
+    Number(expense.emaCosts || 0) +
+    Number(expense.portHealth || 0) +
+    Number(expense.portFee || 0) +
+    Number(expense.agentRunner || 0) +
     Number(expense.otherCost || 0)
   );
 };
@@ -1480,7 +1565,7 @@ const getFilteredDrivers = () => {
     </div>
 
     <div className="overflow-x-auto rounded-md border border-white/20">
-      <table className="w-full min-w-[1300px] text-left text-sm">
+      <table className="w-full min-w-[2200px] text-left text-sm">
         <thead className="bg-white/10 text-sky-100">
           <tr>
             <th className="px-4 py-4">ORDER</th>
@@ -1491,6 +1576,14 @@ const getFilteredDrivers = () => {
             <th className="px-4 py-4">TOLLGATE</th>
             <th className="px-4 py-4">MAINTENANCE</th>
             <th className="px-4 py-4">ALLOWANCE</th>
+            <th className="px-4 py-4">ZIM TOLLS</th>
+            <th className="px-4 py-4">MOZA TOLLS</th>
+            <th className="px-4 py-4">ROAD ACCESS</th>
+            <th className="px-4 py-4">VID</th>
+            <th className="px-4 py-4">EMA</th>
+            <th className="px-4 py-4">PORT HEALTH</th>
+            <th className="px-4 py-4">PORT FEE</th>
+            <th className="px-4 py-4">AGENT/RUNNER</th>
             <th className="px-4 py-4">OTHER</th>
             <th className="px-4 py-4">TOTAL</th>
             <th className="px-4 py-4">PDF</th>
@@ -1501,7 +1594,7 @@ const getFilteredDrivers = () => {
           {expenses.length === 0 ? (
             <tr>
               <td
-                colSpan="11"
+                colSpan="19"
                 className="px-4 py-10 text-center font-semibold text-sky-100"
               >
                 No expenses found
@@ -1531,6 +1624,14 @@ const getFilteredDrivers = () => {
 
                 <td className="px-4 py-4">${expense.fuel || 0}</td>
                 <td className="px-4 py-4">${expense.tollgate || 0}</td>
+                <td className="px-4 py-4">${expense.zimTolls || 0}</td>
+                <td className="px-4 py-4">${expense.mozaTolls || 0}</td>
+                <td className="px-4 py-4">${expense.roadAccess || 0}</td>
+                <td className="px-4 py-4">${expense.vidCosts || 0}</td>
+                <td className="px-4 py-4">${expense.emaCosts || 0}</td>
+                <td className="px-4 py-4">${expense.portHealth || 0}</td>
+                <td className="px-4 py-4">${expense.portFee || 0}</td>
+                <td className="px-4 py-4">${expense.agentRunner || 0}</td>
                 <td className="px-4 py-4">${expense.maintenance || 0}</td>
                 <td className="px-4 py-4">${expense.driverAllowance || 0}</td>
                 <td className="px-4 py-4">${expense.otherCost || 0}</td>
@@ -2513,6 +2614,14 @@ const getFilteredDrivers = () => {
             ["loadingCost", "Loading Cost"],
             ["offloadingCost", "Offloading Cost"],
             ["otherCost", "Other Cost"],
+            ["zimTolls", "Zim Tolls"],
+            ["mozaTolls", "Moza Tolls"],
+            ["roadAccess", "Road Access"],
+            ["vidCosts", "VID Costs"],
+            ["emaCosts", "EMA Costs"],
+            ["portHealth", "Port Health"],
+            ["portFee", "Port Fee"],
+            ["agentRunner", "Agent / Runner"],
           ].map(([key, label]) => (
             <div key={key}>
               <label className={labelClass}>{label}</label>
