@@ -111,11 +111,13 @@ module.exports = (sequelize, DataTypes) => {
           "approved",
           "en_route_to_loading",
           "loading",
+          "loading_rejected",
           "loading_approved",
           "in_transit",
           "arrived_at_destination",
           "waiting_to_offload",
           "offloading",
+          "offloading_rejected",
           "offloading_approved",
           "delivered",
           "customer_confirmed",
@@ -165,6 +167,16 @@ module.exports = (sequelize, DataTypes) => {
       },
 
       loadingNotes: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+      },
+
+      loadingRejectionReason: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+      },
+
+      offloadingRejectionReason: {
         type: DataTypes.TEXT,
         allowNull: true,
       },
