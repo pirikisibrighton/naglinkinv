@@ -23,7 +23,7 @@ function Services() {
       margin: "mt-0",
       borderGradient: "linear-gradient(to right, #ffffff, #bae6fd, #38bdf8)",
       descClass:
-        "bg-gradient-to-r from-blue-950 via-sky-600 to-blue-800 text-white",
+        "bg-gradient-to-r from-blue-600 via-sky-400 to-blue-600 text-white",
     },
     {
       title: "FTL Shipping",
@@ -40,7 +40,7 @@ function Services() {
       margin: "mt-0 lg:mt-12",
       borderGradient: "linear-gradient(to right, #ffffff, #bae6fd, #38bdf8)",
       descClass:
-        "bg-gradient-to-r from-blue-950 via-sky-600 to-blue-800 text-white",
+        "bg-gradient-to-r from-blue-600 via-sky-400 to-blue-600 text-white",
     },
     {
       title: "Bulk Cargo Transport",
@@ -61,9 +61,9 @@ function Services() {
     },
   ];
 
-  return (
-    <main className="min-h-screen bg-gradient-to-r from-blue-950 via-sky-300 to-white pb-24">
+  return(
 
+ <main className="min-h-screen bg-gradient-to-r from-blue-400 via-sky-200 to-white pb-24">
       {/* HERO */}
       <section className="w-full">
         <motion.div
