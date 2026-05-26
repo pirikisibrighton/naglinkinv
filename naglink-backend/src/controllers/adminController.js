@@ -38,10 +38,22 @@ const getDashboardStats = async (req, res) => {
       },
     });
 
+    const loadingRejected = await Order.count({
+      where: {
+        status: "loading_rejected",
+      },
+    });
+
     const offloadingPending = await Order.count({
       where: {
         status: "offloading",
         offloadingApproved: false,
+      },
+    });
+
+    const offloadingRejected = await Order.count({
+      where: {
+        status: "offloading_rejected",
       },
     });
 
@@ -151,7 +163,9 @@ const getDashboardStats = async (req, res) => {
       orders: {
         pending: pendingOrders,
         loadingPending,
+        loadingRejected,
         offloadingPending,
+        offloadingRejected,
         inTransit: inTransitOrders,
         completed: completedOrders,
       },
@@ -233,8 +247,15 @@ const approveLoading = async (req, res) => {
       return res.status(404).json({ message: "Order not found" });
     }
 
+    if (!["loading", "loading_rejected"].includes(order.status)) {
+      return res.status(400).json({
+        message: `Cannot approve loading while order status is ${order.status}`,
+      });
+    }
+
     await order.update({
       loadingApproved: true,
+      loadingRejectionReason: null,
       status: "in_transit",
     });
 
@@ -245,7 +266,7 @@ const approveLoading = async (req, res) => {
       updatedBy: req.userId,
       status: "in_transit",
       title: "Loading Approved",
-      note: "Admin approved loading. Order is now in transit.",
+      note: "Admin approved loading proof. Order is now in transit.",
       locationName: order.pickupLocation,
     });
 
@@ -254,7 +275,7 @@ const approveLoading = async (req, res) => {
       roleTarget: "driver",
       orderId: order.id,
       title: "Loading Approved",
-      message: `Loading for order ${orderLabel} has been approved. You can proceed in transit.`,
+      message: `Loading proof for order ${orderLabel} has been approved. You can proceed in transit.`,
       type: "loading_approved",
     });
 
@@ -263,7 +284,7 @@ const approveLoading = async (req, res) => {
       roleTarget: "customer",
       orderId: order.id,
       title: "Order In Transit",
-      message: `Loading for your order ${orderLabel} has been approved. The order is now in transit.`,
+      message: `Loading proof for your order ${orderLabel} has been approved. The order is now in transit.`,
       type: "loading_approved",
     });
 
@@ -281,6 +302,77 @@ const approveLoading = async (req, res) => {
   }
 };
 
+const rejectLoading = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    const rejectionReason =
+      reason ||
+      "Loading proof image was not clear. Please re-upload a clear document/image.";
+
+    const order = await Order.findByPk(id);
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    if (order.status !== "loading") {
+      return res.status(400).json({
+        message: `Cannot reject loading proof while order status is ${order.status}`,
+      });
+    }
+
+    await order.update({
+      loadingApproved: false,
+      loadingDocumentUrl: null,
+      loadingRejectionReason: rejectionReason,
+      status: "loading_rejected",
+    });
+
+    const orderLabel = getOrderLabel(order);
+
+    await OrderStatusUpdate.create({
+      orderId: order.id,
+      updatedBy: req.userId,
+      status: "loading_rejected",
+      title: "Loading Proof Rejected",
+      note: rejectionReason,
+      locationName: order.pickupLocation,
+    });
+
+    await createNotification({
+      userId: order.driverId,
+      roleTarget: "driver",
+      orderId: order.id,
+      title: "Re-upload Loading Proof",
+      message: `Loading proof for order ${orderLabel} was rejected. Reason: ${rejectionReason}`,
+      type: "loading_rejected",
+    });
+
+    await createNotification({
+      userId: order.customerId,
+      roleTarget: "customer",
+      orderId: order.id,
+      title: "Loading Proof Re-upload Requested",
+      message: `Admin requested the driver to re-upload loading proof for your order ${orderLabel}.`,
+      type: "loading_rejected",
+    });
+
+    res.json({
+      message: "Loading proof rejected. Driver has been asked to re-upload.",
+      order,
+    });
+  } catch (error) {
+    console.error("Reject loading error:", error);
+
+    res.status(500).json({
+      message: "Error rejecting loading proof",
+      error: error.message,
+    });
+  }
+};
+
 const approveOffloading = async (req, res) => {
   try {
     const { id } = req.params;
@@ -291,8 +383,15 @@ const approveOffloading = async (req, res) => {
       return res.status(404).json({ message: "Order not found" });
     }
 
+    if (!["offloading", "offloading_rejected"].includes(order.status)) {
+      return res.status(400).json({
+        message: `Cannot approve offloading while order status is ${order.status}`,
+      });
+    }
+
     await order.update({
       offloadingApproved: true,
+      offloadingRejectionReason: null,
       status: "delivered",
     });
 
@@ -303,7 +402,7 @@ const approveOffloading = async (req, res) => {
       updatedBy: req.userId,
       status: "delivered",
       title: "Offloading Approved",
-      note: "Admin approved offloading. Order is now delivered.",
+      note: "Admin approved offloading proof. Order is now delivered.",
       locationName: order.deliveryLocation,
     });
 
@@ -312,7 +411,7 @@ const approveOffloading = async (req, res) => {
       roleTarget: "driver",
       orderId: order.id,
       title: "Offloading Approved",
-      message: `Offloading for order ${orderLabel} has been approved.`,
+      message: `Offloading proof for order ${orderLabel} has been approved.`,
       type: "offloading_approved",
     });
 
@@ -321,7 +420,7 @@ const approveOffloading = async (req, res) => {
       roleTarget: "customer",
       orderId: order.id,
       title: "Order Delivered",
-      message: `Your order ${orderLabel} has been delivered successfully.`,
+      message: `Offloading proof for your order ${orderLabel} has been approved. Your order has been delivered successfully.`,
       type: "offloading_approved",
     });
 
@@ -348,6 +447,77 @@ const approveOffloading = async (req, res) => {
 
     res.status(500).json({
       message: "Error approving offloading",
+      error: error.message,
+    });
+  }
+};
+
+const rejectOffloading = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    const rejectionReason =
+      reason ||
+      "Offloading/POD proof image was not clear. Please re-upload a clear document/image.";
+
+    const order = await Order.findByPk(id);
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    if (order.status !== "offloading") {
+      return res.status(400).json({
+        message: `Cannot reject offloading proof while order status is ${order.status}`,
+      });
+    }
+
+    await order.update({
+      offloadingApproved: false,
+      offloadingDocumentUrl: null,
+      offloadingRejectionReason: rejectionReason,
+      status: "offloading_rejected",
+    });
+
+    const orderLabel = getOrderLabel(order);
+
+    await OrderStatusUpdate.create({
+      orderId: order.id,
+      updatedBy: req.userId,
+      status: "offloading_rejected",
+      title: "Offloading Proof Rejected",
+      note: rejectionReason,
+      locationName: order.deliveryLocation,
+    });
+
+    await createNotification({
+      userId: order.driverId,
+      roleTarget: "driver",
+      orderId: order.id,
+      title: "Re-upload Offloading Proof",
+      message: `Offloading proof for order ${orderLabel} was rejected. Reason: ${rejectionReason}`,
+      type: "offloading_rejected",
+    });
+
+    await createNotification({
+      userId: order.customerId,
+      roleTarget: "customer",
+      orderId: order.id,
+      title: "Offloading Proof Re-upload Requested",
+      message: `Admin requested the driver to re-upload offloading proof for your order ${orderLabel}.`,
+      type: "offloading_rejected",
+    });
+
+    res.json({
+      message: "Offloading proof rejected. Driver has been asked to re-upload.",
+      order,
+    });
+  } catch (error) {
+    console.error("Reject offloading error:", error);
+
+    res.status(500).json({
+      message: "Error rejecting offloading proof",
       error: error.message,
     });
   }
@@ -449,7 +619,9 @@ module.exports = {
   getDashboardStats,
   getAllTrips,
   approveLoading,
+  rejectLoading,
   approveOffloading,
+  rejectOffloading,
   getExpenses,
   getCashflow,
 };

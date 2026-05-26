@@ -64,6 +64,10 @@ const [quoteReplyData, setQuoteReplyData] = useState({
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
 
+  const [showRejectLoadingModal, setShowRejectLoadingModal] = useState(false);
+  const [showRejectOffloadingModal, setShowRejectOffloadingModal] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
+
   const [approvalData, setApprovalData] = useState({
     price: "",
     driverId: "",
@@ -818,17 +822,68 @@ const getFilteredDrivers = () => {
     }
   };
 
+  const handleRejectLoading = async () => {
+    if (!selectedOrder) return;
+
+    try {
+      await API.post(`/admin/orders/${selectedOrder.id}/reject-loading`, {
+        reason: rejectionReason,
+      });
+
+      toast.success("Loading document rejected. Driver has been asked to re-upload.");
+
+      setShowRejectLoadingModal(false);
+      setSelectedOrder(null);
+      setRejectionReason("");
+
+      fetchOrders();
+      fetchDashboardStats();
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Error rejecting loading document");
+    }
+  };
+
+  const handleRejectOffloading = async () => {
+    if (!selectedOrder) return;
+
+    try {
+      await API.post(`/admin/orders/${selectedOrder.id}/reject-offloading`, {
+        reason: rejectionReason,
+      });
+
+      toast.success("Offloading/POD document rejected. Driver has been asked to re-upload.");
+
+      setShowRejectOffloadingModal(false);
+      setSelectedOrder(null);
+      setRejectionReason("");
+
+      fetchOrders();
+      fetchDashboardStats();
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Error rejecting POD document");
+    }
+  };
+
+  const closeRejectModal = () => {
+    setShowRejectLoadingModal(false);
+    setShowRejectOffloadingModal(false);
+    setSelectedOrder(null);
+    setRejectionReason("");
+  };
+
   const getStatusColor = (status) => {
     const colors = {
       pending: "bg-yellow-100 text-yellow-800 border border-yellow-200",
       approved: "bg-blue-100 text-blue-800 border border-blue-200",
       en_route_to_loading: "bg-cyan-100 text-cyan-800 border border-cyan-200",
       loading: "bg-purple-100 text-purple-800 border border-purple-200",
+      loading_rejected: "bg-red-100 text-red-800 border border-red-200",
       loading_approved: "bg-purple-100 text-purple-800 border border-purple-200",
       in_transit: "bg-indigo-100 text-indigo-800 border border-indigo-200",
       arrived_at_destination: "bg-sky-100 text-sky-800 border border-sky-200",
       waiting_to_offload: "bg-orange-100 text-orange-800 border border-orange-200",
       offloading: "bg-orange-100 text-orange-800 border border-orange-200",
+      offloading_rejected: "bg-red-100 text-red-800 border border-red-200",
       offloading_approved: "bg-emerald-100 text-emerald-800 border border-emerald-200",
       delivered: "bg-green-100 text-green-800 border border-green-200",
       customer_confirmed: "bg-emerald-100 text-emerald-800 border border-emerald-200",
@@ -869,6 +924,12 @@ const getFilteredDrivers = () => {
         .length,
     },
     {
+      key: "loading_rejected",
+      label: "Loading Rejected",
+      icon: XCircle,
+      count: orders.filter((o) => o.status === "loading_rejected").length,
+    },
+    {
       key: "in_transit",
       label: "In Transit",
       icon: Route,
@@ -881,6 +942,12 @@ const getFilteredDrivers = () => {
       count: orders.filter(
         (o) => o.status === "offloading" && !o.offloadingApproved
       ).length,
+    },
+    {
+      key: "offloading_rejected",
+      label: "POD Rejected",
+      icon: XCircle,
+      count: orders.filter((o) => o.status === "offloading_rejected").length,
     },
     {
       key: "delivered",
@@ -1564,7 +1631,29 @@ const getFilteredDrivers = () => {
                           >
                             Approve Loading
                           </button>
+
+                          <button
+                            onClick={() => {
+                              setSelectedOrder(order);
+                              setRejectionReason("");
+                              setShowRejectLoadingModal(true);
+                            }}
+                            className="flex items-center justify-center gap-2 rounded-lg border border-red-400 bg-red-500/10 px-4 py-2 text-xs font-semibold text-red-300 transition hover:bg-red-600 hover:text-white"
+                          >
+                            Reject Loading
+                          </button>
                         </>
+                      )}
+
+                      {order.status === "loading_rejected" && (
+                        <div className="rounded-lg border border-red-300 bg-red-100 px-4 py-2 text-xs font-semibold text-red-700">
+                          Loading rejected. Waiting for driver to re-upload.
+                          {order.loadingRejectionReason && (
+                            <p className="mt-1 font-medium">
+                              Reason: {order.loadingRejectionReason}
+                            </p>
+                          )}
+                        </div>
                       )}
 
                       {order.status === "in_transit" && (
@@ -1600,7 +1689,29 @@ const getFilteredDrivers = () => {
                           >
                             Approve Offloading
                           </button>
+
+                          <button
+                            onClick={() => {
+                              setSelectedOrder(order);
+                              setRejectionReason("");
+                              setShowRejectOffloadingModal(true);
+                            }}
+                            className="flex items-center justify-center gap-2 rounded-lg border border-red-400 bg-red-500/10 px-4 py-2 text-xs font-semibold text-red-300 transition hover:bg-red-600 hover:text-white"
+                          >
+                            Reject POD
+                          </button>
                         </>
+                      )}
+
+                      {order.status === "offloading_rejected" && (
+                        <div className="rounded-lg border border-red-300 bg-red-100 px-4 py-2 text-xs font-semibold text-red-700">
+                          POD rejected. Waiting for driver to re-upload.
+                          {order.offloadingRejectionReason && (
+                            <p className="mt-1 font-medium">
+                              Reason: {order.offloadingRejectionReason}
+                            </p>
+                          )}
+                        </div>
                       )}
 
                       {order.status === "delivered" && (
@@ -3031,6 +3142,73 @@ const getFilteredDrivers = () => {
                     </button>
                   </div>
                 </form>
+              </div>
+            </div>
+          </div>
+        )}
+
+
+        {(showRejectLoadingModal || showRejectOffloadingModal) && selectedOrder && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-blue-950/75 px-3 py-4 backdrop-blur-sm">
+            <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-[28px] bg-gradient-to-r from-red-700 via-red-500 to-orange-500 p-[4px] shadow-2xl">
+              <div className="rounded-[24px] bg-gradient-to-r from-slate-100 via-red-50 to-white p-5 sm:p-6">
+                <div className="mb-5">
+                  <h2 className="text-2xl font-black text-blue-950">
+                    {showRejectLoadingModal
+                      ? "Reject Loading Document"
+                      : "Reject POD / Offloading Document"}
+                  </h2>
+
+                  <p className="mt-2 text-sm font-medium text-slate-600">
+                    Order {selectedOrder.orderNumber || `#${selectedOrder.id}`} will be sent back to the driver for a clearer re-upload.
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+                  <p className="font-black">Default reason:</p>
+                  <p className="mt-1">
+                    {showRejectLoadingModal
+                      ? "Loading proof image was not clear. Please re-upload a clear document/image."
+                      : "Offloading/POD proof image was not clear. Please re-upload a clear document/image."}
+                  </p>
+                </div>
+
+                <div className="mt-5">
+                  <label className={labelClass}>Reason for rejection</label>
+                  <textarea
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    rows="5"
+                    placeholder={
+                      showRejectLoadingModal
+                        ? "Example: The loading image is blurry. Please upload a clearer image showing the goods properly."
+                        : "Example: The POD image is unclear. Please upload a visible signed POD."
+                    }
+                    className={inputClass}
+                  />
+                </div>
+
+                <div className="mt-6 flex flex-col gap-3 border-t border-red-100 pt-5 sm:flex-row sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={closeRejectModal}
+                    className={cancelButton}
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={
+                      showRejectLoadingModal
+                        ? handleRejectLoading
+                        : handleRejectOffloading
+                    }
+                    className="rounded-2xl bg-red-600 px-5 py-3 font-bold text-white shadow-lg shadow-red-900/20 transition hover:bg-red-700"
+                  >
+                    {showRejectLoadingModal ? "Reject Loading" : "Reject POD"}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
